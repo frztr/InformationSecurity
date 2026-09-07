@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vs
+.vscode
+**/bin
+**/obj
+**/TestResults
+**/*.user
+**/*.suo
+**/node_modules
+tests
+*.md
+.dockerignore
+docker-compose.yml
+.env

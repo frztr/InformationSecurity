@@ -1,0 +1,15 @@
+PrimeNumberGeneration:
+  BitLength: 64
+  PauseBetweenGenerations: 00:00:00
+  ParallelSearchWorkerCount: 0
+  ReservedIdleProcessorCount: 1
+  MaxProcessorUtilizationPercent: 100
+  WorkerThreadPriority: BelowNormal
+
+Publishing:
+  Destination: Kafka
+
+Kafka:
+  BootstrapServers: localhost:9094
+  Topic: prime-numbers
+  ClientId: prime-number-generator-development

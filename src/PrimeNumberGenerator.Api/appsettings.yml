@@ -1,0 +1,28 @@
+# Целевая длина простого числа по заданию — 16384 бита.
+# Для быстрой локальной проверки уменьшите BitLength, например до 64.
+PrimeNumberGeneration:
+  BitLength: 16384
+  MillerRabinWitnessRoundCount: 3
+  TrialDivisionPrimeCount: 10000
+  PauseBetweenGenerations: 00:00:00
+  # 0 — независимые потоки поиска; каждый публикует сам, соседей не отменяет
+  ParallelSearchWorkerCount: 0
+  ReservedIdleProcessorCount: 1
+  # 100 — потоки поиска работают без пауз. Свободное ядро задаётся ReservedIdleProcessorCount.
+  MaxProcessorUtilizationPercent: 100
+  # Lowest | BelowNormal | Normal
+  WorkerThreadPriority: BelowNormal
+
+# Destination: Console или Kafka
+Publishing:
+  Destination: Console
+
+Kafka:
+  BootstrapServers: localhost:9094
+  Topic: prime-numbers
+  ClientId: prime-number-generator
+
+Logging:
+  LogLevel:
+    Default: Information
+    Microsoft.AspNetCore: Warning

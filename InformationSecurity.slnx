@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PrimeNumberGenerator.Api/PrimeNumberGenerator.Api.csproj" />
+    <Project Path="src/PrimeNumberGenerator.Application/PrimeNumberGenerator.Application.csproj" />
+    <Project Path="src/PrimeNumberGenerator.Domain/PrimeNumberGenerator.Domain.csproj" />
+    <Project Path="src/PrimeNumberGenerator.Infrastructure/PrimeNumberGenerator.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PrimeNumberGenerator.Application.Tests/PrimeNumberGenerator.Application.Tests.csproj" />
+    <Project Path="tests/PrimeNumberGenerator.Domain.Tests/PrimeNumberGenerator.Domain.Tests.csproj" />
+    <Project Path="tests/PrimeNumberGenerator.Infrastructure.Tests/PrimeNumberGenerator.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

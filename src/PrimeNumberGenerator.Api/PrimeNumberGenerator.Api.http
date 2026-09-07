@@ -1,0 +1,6 @@
+@PrimeNumberGenerator.Api_HostAddress = http://localhost:5080
+
+GET {{PrimeNumberGenerator.Api_HostAddress}}/health
+Accept: application/json
+
+###
