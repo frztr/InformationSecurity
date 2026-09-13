@@ -10,7 +10,7 @@ public sealed class OddCandidateTrialDivisionSieve
 {
     private readonly int[] _smallPrimeNumbers;
     private readonly int[] _remainders;
-    private BigInteger _candidate;
+    private BigInteger _currentCandidate;
     private bool _hasCandidate;
 
     /// <summary>
@@ -35,12 +35,12 @@ public sealed class OddCandidateTrialDivisionSieve
                 $"Пробное деление поддерживает не больше {SmallPrimeNumberTable.MaximumSupportedPrimeCount} малых простых чисел.");
         }
 
-        var skipTwo = trialDivisionPrimeCount > 1 ? 1 : 0;
-        var remainderCount = trialDivisionPrimeCount - skipTwo;
+        int skipTwo = trialDivisionPrimeCount > 1 ? 1 : 0;
+        int remainderCount = trialDivisionPrimeCount - skipTwo;
         _smallPrimeNumbers = new int[remainderCount];
         _remainders = new int[remainderCount];
 
-        for (var primeIndex = 0; primeIndex < remainderCount; primeIndex++)
+        for (int primeIndex = 0; primeIndex < remainderCount; primeIndex++)
         {
             _smallPrimeNumbers[primeIndex] = SmallPrimeNumberTable.FirstPrimeNumbers[primeIndex + skipTwo];
         }
@@ -49,12 +49,12 @@ public sealed class OddCandidateTrialDivisionSieve
     /// <summary>
     /// Текущий нечётный кандидат.
     /// </summary>
-    public BigInteger Candidate
+    public BigInteger CurrentCandidate
     {
         get
         {
             EnsureHasCandidate();
-            return _candidate;
+            return _currentCandidate;
         }
     }
 
@@ -76,7 +76,7 @@ public sealed class OddCandidateTrialDivisionSieve
             throw new ArgumentException("Кандидат для решета должен быть нечётным.", nameof(oddCandidate));
         }
 
-        _candidate = oddCandidate;
+        _currentCandidate = oddCandidate;
         _hasCandidate = true;
         RecalculateRemaindersFromCandidateBytes();
     }
@@ -85,18 +85,18 @@ public sealed class OddCandidateTrialDivisionSieve
     /// Возвращает true, если текущий кандидат не делится ни на одно из малых простых
     /// либо сам равен одному из них.
     /// </summary>
-    public bool CurrentSurvives()
+    public bool CurrentCandidateSurvives()
     {
         EnsureHasCandidate();
 
-        for (var primeIndex = 0; primeIndex < _remainders.Length; primeIndex++)
+        for (int primeIndex = 0; primeIndex < _remainders.Length; primeIndex++)
         {
             if (_remainders[primeIndex] != 0)
             {
                 continue;
             }
 
-            if (_candidate == _smallPrimeNumbers[primeIndex])
+            if (_currentCandidate == _smallPrimeNumbers[primeIndex])
             {
                 return true;
             }
@@ -114,12 +114,12 @@ public sealed class OddCandidateTrialDivisionSieve
     {
         EnsureHasCandidate();
 
-        _candidate += 2;
+        _currentCandidate += 2;
 
-        for (var primeIndex = 0; primeIndex < _remainders.Length; primeIndex++)
+        for (int primeIndex = 0; primeIndex < _remainders.Length; primeIndex++)
         {
-            var remainder = _remainders[primeIndex] + 2;
-            var smallPrimeNumber = _smallPrimeNumbers[primeIndex];
+            int remainder = _remainders[primeIndex] + 2;
+            int smallPrimeNumber = _smallPrimeNumbers[primeIndex];
             if (remainder >= smallPrimeNumber)
             {
                 remainder -= smallPrimeNumber;
@@ -134,9 +134,9 @@ public sealed class OddCandidateTrialDivisionSieve
     /// </summary>
     private void RecalculateRemaindersFromCandidateBytes()
     {
-        var candidateBytes = _candidate.ToByteArray(isUnsigned: true, isBigEndian: false);
+        byte[] candidateBytes = _currentCandidate.ToByteArray(isUnsigned: true, isBigEndian: false);
 
-        for (var primeIndex = 0; primeIndex < _smallPrimeNumbers.Length; primeIndex++)
+        for (int primeIndex = 0; primeIndex < _smallPrimeNumbers.Length; primeIndex++)
         {
             _remainders[primeIndex] = RemainderFromLittleEndianBytes(candidateBytes, _smallPrimeNumbers[primeIndex]);
         }
@@ -147,10 +147,10 @@ public sealed class OddCandidateTrialDivisionSieve
     /// </summary>
     private static int RemainderFromLittleEndianBytes(byte[] candidateBytes, int modulus)
     {
-        var remainder = 0;
-        var basePower = 1;
+        int remainder = 0;
+        int basePower = 1;
 
-        for (var byteIndex = 0; byteIndex < candidateBytes.Length; byteIndex++)
+        for (int byteIndex = 0; byteIndex < candidateBytes.Length; byteIndex++)
         {
             remainder = (int)((remainder + (long)candidateBytes[byteIndex] * basePower) % modulus);
             basePower = (int)((basePower * 256L) % modulus);

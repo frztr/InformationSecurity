@@ -4,33 +4,32 @@ using PrimeNumberGenerator.Domain.PrimeNumbers.Randomness;
 namespace PrimeNumberGenerator.Domain.PrimeNumbers.Generation;
 
 /// <summary>
-/// Строит нечётных кандидатов из криптографически стойких случайных байт.
+/// Cоздаёт нечётных кандидатов из криптографически стойких случайных байт.
 /// </summary>
-public sealed class CryptographicOddPrimeCandidateSource : IPrimeCandidateSource
+public sealed class CryptographicOddPrimeCandidateSource(IRandomIntegerSource randomIntegerSource)
+    : IPrimeCandidateSource
 {
-    private readonly IRandomIntegerSource _randomIntegerSource;
-
-    /// <summary>
-    /// Создаёт источник кандидатов, который берёт случайные байты из <paramref name="randomIntegerSource"/>.
-    /// </summary>
-    public CryptographicOddPrimeCandidateSource(IRandomIntegerSource randomIntegerSource)
-    {
-        _randomIntegerSource = randomIntegerSource;
-    }
-
     /// <summary>
     /// Возвращает случайное нечётное число со старшим битом, чтобы длина была ровно <paramref name="bitLength"/> бит.
     /// </summary>
-    public BigInteger NextOddCandidate(BitLength bitLength)
+    public BigInteger NextOddCandidate(int bitLength)
     {
-        var byteCount = (bitLength.Value + 7) / 8;
-        var randomBytes = new byte[byteCount];
-        _randomIntegerSource.FillBytes(randomBytes);
+        if (bitLength < 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(bitLength),
+                bitLength,
+                "Bit length must be at least 2.");
+        }
 
-        var candidate = new BigInteger(randomBytes, isUnsigned: true, isBigEndian: true);
-        var bitMask = (BigInteger.One << bitLength.Value) - BigInteger.One;
+        int byteCount = (bitLength + 7) / 8;
+        byte[] randomBytes = new byte[byteCount];
+        randomIntegerSource.FillBytes(randomBytes);
+
+        BigInteger candidate = new BigInteger(randomBytes, isUnsigned: true, isBigEndian: true);
+        BigInteger bitMask = (BigInteger.One << bitLength) - BigInteger.One;
         candidate &= bitMask;
-        candidate |= BigInteger.One << (bitLength.Value - 1);
+        candidate |= BigInteger.One << (bitLength - 1);
         candidate |= BigInteger.One;
 
         return candidate;

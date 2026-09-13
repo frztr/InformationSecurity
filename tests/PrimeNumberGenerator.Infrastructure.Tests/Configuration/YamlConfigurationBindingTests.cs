@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using PrimeNumberGenerator.Application.Configuration;
-using PrimeNumberGenerator.Application.Publishing;
 using PrimeNumberGenerator.Domain.PrimeNumbers.Generation;
 
 namespace PrimeNumberGenerator.Infrastructure.Tests.Configuration;
@@ -11,7 +10,7 @@ public sealed class YamlConfigurationBindingTests
     [Fact]
     public void YamlFile_ShouldBindPrimeNumberGenerationOptionsIncluding16384BitLength()
     {
-        var configuration = LoadYaml(
+        IConfigurationRoot configuration = LoadYaml(
             """
             PrimeNumberGeneration:
               BitLength: 16384
@@ -22,21 +21,16 @@ public sealed class YamlConfigurationBindingTests
               ReservedIdleProcessorCount: 1
               MaxProcessorUtilizationPercent: 100
               WorkerThreadPriority: BelowNormal
-            Publishing:
-              Destination: Kafka
             Kafka:
               BootstrapServers: localhost:9094
               Topic: prime-numbers
               ClientId: prime-number-generator
             """);
 
-        var generationOptions = new PrimeNumberGenerationOptions();
+        PrimeNumberGenerationOptions generationOptions = new PrimeNumberGenerationOptions();
         configuration.GetSection(PrimeNumberGenerationOptions.SectionName).Bind(generationOptions);
 
-        var publishingOptions = new PublishingOptions();
-        configuration.GetSection(PublishingOptions.SectionName).Bind(publishingOptions);
-
-        var kafkaOptions = new KafkaOptions();
+        KafkaOptions kafkaOptions = new KafkaOptions();
         configuration.GetSection(KafkaOptions.SectionName).Bind(kafkaOptions);
 
         generationOptions.BitLength.Should().Be(16384);
@@ -47,30 +41,14 @@ public sealed class YamlConfigurationBindingTests
         generationOptions.ReservedIdleProcessorCount.Should().Be(1);
         generationOptions.MaxProcessorUtilizationPercent.Should().Be(100);
         generationOptions.WorkerThreadPriority.Should().Be(SearchWorkerPriority.BelowNormal);
-        publishingOptions.Destination.Should().Be(PublishingDestination.Kafka);
         kafkaOptions.BootstrapServers.Should().Be("localhost:9094");
         kafkaOptions.Topic.Should().Be("prime-numbers");
         kafkaOptions.ClientId.Should().Be("prime-number-generator");
     }
 
-    [Fact]
-    public void YamlFile_ShouldBindConsoleDestination()
-    {
-        var configuration = LoadYaml(
-            """
-            Publishing:
-              Destination: Console
-            """);
-
-        var publishingOptions = new PublishingOptions();
-        configuration.GetSection(PublishingOptions.SectionName).Bind(publishingOptions);
-
-        publishingOptions.Destination.Should().Be(PublishingDestination.Console);
-    }
-
     private static IConfigurationRoot LoadYaml(string yaml)
     {
-        var filePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.yml");
+        string filePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.yml");
         File.WriteAllText(filePath, yaml);
 
         try

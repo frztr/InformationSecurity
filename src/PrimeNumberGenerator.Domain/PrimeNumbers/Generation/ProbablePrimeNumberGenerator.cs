@@ -9,7 +9,6 @@ namespace PrimeNumberGenerator.Domain.PrimeNumbers.Generation;
 /// </summary>
 public sealed class ProbablePrimeNumberGenerator(
     IPrimeCandidateSource primeCandidateSource,
-    TrialDivisionFilter trialDivisionFilter,
     IPrimalityTester primalityTester,
     IProcessorLoadGovernor processorLoadGovernor,
     TimeProvider timeProvider)
@@ -21,7 +20,7 @@ public sealed class ProbablePrimeNumberGenerator(
     /// Запускает поиск в отдельном долгом потоке и возвращает найденное вероятностно простое число.
     /// </summary>
     public Task<PrimeNumber> GenerateAsync(
-        BitLength bitLength,
+        int bitLength,
         PrimeGenerationParameters generationParameters,
         CancellationToken cancellationToken)
     {
@@ -36,34 +35,35 @@ public sealed class ProbablePrimeNumberGenerator(
     /// Перебирает нечётных кандидатов в текущем потоке, пока не найдёт простое число или не придёт отмена.
     /// </summary>
     private PrimeNumber SearchOnCurrentThread(
-        BitLength bitLength,
+        int bitLength,
         PrimeGenerationParameters generationParameters,
         CancellationToken cancellationToken)
     {
-        using var threadPriorityScope = processorLoadGovernor.ApplyWorkerThreadPriority(
+        using IDisposable threadPriorityScope = processorLoadGovernor.ApplyWorkerThreadPriority(
             generationParameters.ProcessorLoadPolicy.WorkerThreadPriority);
 
-        var trialDivisionSieve = trialDivisionFilter.CreateSieve(generationParameters.TrialDivisionPrimeCount);
+        OddCandidateTrialDivisionSieve trialDivisionSieve = new OddCandidateTrialDivisionSieve(
+            generationParameters.TrialDivisionPrimeCount);
         ResetSieveToCandidateOfRequestedBitLength(trialDivisionSieve, bitLength);
-        var workSliceStopwatch = Stopwatch.StartNew();
+        Stopwatch workSliceStopwatch = Stopwatch.StartNew();
 
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (trialDivisionSieve.Candidate.GetBitLength() != bitLength.Value)
+            if (trialDivisionSieve.CurrentCandidate.GetBitLength() != bitLength)
             {
                 ResetSieveToCandidateOfRequestedBitLength(trialDivisionSieve, bitLength);
                 continue;
             }
 
-            if (trialDivisionSieve.CurrentSurvives()
+            if (trialDivisionSieve.CurrentCandidateSurvives()
                 && primalityTester.IsProbablePrime(
-                    trialDivisionSieve.Candidate,
+                    trialDivisionSieve.CurrentCandidate,
                     generationParameters.MillerRabinWitnessRoundCount,
                     cancellationToken))
             {
-                return PrimeNumber.Create(trialDivisionSieve.Candidate, bitLength, timeProvider.GetUtcNow());
+                return new PrimeNumber(trialDivisionSieve.CurrentCandidate, bitLength, timeProvider.GetUtcNow());
             }
 
             trialDivisionSieve.AdvanceToNextOddCandidate();
@@ -76,14 +76,14 @@ public sealed class ProbablePrimeNumberGenerator(
     /// </summary>
     private void ResetSieveToCandidateOfRequestedBitLength(
         OddCandidateTrialDivisionSieve trialDivisionSieve,
-        BitLength bitLength)
+        int bitLength)
     {
         BigInteger candidate;
         do
         {
             candidate = primeCandidateSource.NextOddCandidate(bitLength);
         }
-        while (candidate.GetBitLength() != bitLength.Value);
+        while (candidate.GetBitLength() != bitLength);
 
         trialDivisionSieve.Reset(candidate);
     }

@@ -6,9 +6,6 @@ PrimeNumberGeneration:
   MaxProcessorUtilizationPercent: 100
   WorkerThreadPriority: BelowNormal
 
-Publishing:
-  Destination: Kafka
-
 Kafka:
   BootstrapServers: localhost:9094
   Topic: prime-numbers

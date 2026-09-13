@@ -10,14 +10,6 @@ public sealed class TrialDivisionFilter
     private static readonly BigInteger[] SmallPrimeNumbersAsBigInteger = CreateSmallPrimeNumbersAsBigInteger();
 
     /// <summary>
-    /// Создаёт решето, которое обновляет остатки при шаге кандидата на +2.
-    /// </summary>
-    public OddCandidateTrialDivisionSieve CreateSieve(int trialDivisionPrimeCount)
-    {
-        return new OddCandidateTrialDivisionSieve(trialDivisionPrimeCount);
-    }
-
-    /// <summary>
     /// Возвращает true, если кандидат сам является малым простым
     /// или не делится на заданное число малых простых из таблицы.
     /// </summary>
@@ -30,9 +22,9 @@ public sealed class TrialDivisionFilter
             return false;
         }
 
-        for (var primeIndex = 0; primeIndex < trialDivisionPrimeCount; primeIndex++)
+        for (int primeIndex = 0; primeIndex < trialDivisionPrimeCount; primeIndex++)
         {
-            var smallPrimeNumberAsBigInteger = SmallPrimeNumbersAsBigInteger[primeIndex];
+            BigInteger smallPrimeNumberAsBigInteger = SmallPrimeNumbersAsBigInteger[primeIndex];
 
             if (candidate == smallPrimeNumberAsBigInteger)
             {
@@ -53,8 +45,8 @@ public sealed class TrialDivisionFilter
     /// </summary>
     private static BigInteger[] CreateSmallPrimeNumbersAsBigInteger()
     {
-        var smallPrimeNumbersAsBigInteger = new BigInteger[SmallPrimeNumberTable.MaximumSupportedPrimeCount];
-        for (var primeIndex = 0; primeIndex < smallPrimeNumbersAsBigInteger.Length; primeIndex++)
+        BigInteger[] smallPrimeNumbersAsBigInteger = new BigInteger[SmallPrimeNumberTable.MaximumSupportedPrimeCount];
+        for (int primeIndex = 0; primeIndex < smallPrimeNumbersAsBigInteger.Length; primeIndex++)
         {
             smallPrimeNumbersAsBigInteger[primeIndex] = SmallPrimeNumberTable.FirstPrimeNumbers[primeIndex];
         }

@@ -13,44 +13,47 @@ public sealed class PrimeNumber : IEquatable<PrimeNumber>
     public BigInteger Value { get; }
 
     /// <summary>
-    /// Битовая длина, запрошенная при генерации.
+    /// Битовая длина числа.
     /// </summary>
-    public BitLength BitLength { get; }
+    public int BitLength { get; }
 
     /// <summary>
     /// Момент по UTC, когда число приняли как вероятностно простое.
     /// </summary>
     public DateTimeOffset GeneratedAt { get; }
 
-    private PrimeNumber(BigInteger value, BitLength bitLength, DateTimeOffset generatedAt)
-    {
-        Value = value;
-        BitLength = bitLength;
-        GeneratedAt = generatedAt;
-    }
-
     /// <summary>
     /// Создаёт простое число после проверки, что значение не меньше 2 и совпадает с ожидаемой битовой длиной.
     /// </summary>
     /// <param name="value">Кандидат в простые числа.</param>
-    /// <param name="expectedBitLength">Битовая длина, которой должно обладать значение.</param>
+    /// <param name="bitLength">Битовая длина, которой должно обладать значение.</param>
     /// <param name="generatedAt">Момент получения значения.</param>
-    public static PrimeNumber Create(BigInteger value, BitLength expectedBitLength, DateTimeOffset generatedAt)
+    public PrimeNumber(BigInteger value, int bitLength, DateTimeOffset generatedAt)
     {
+        if (bitLength < 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(bitLength),
+                bitLength,
+                "Bit length must be at least 2.");
+        }
+
         if (value < 2)
         {
             throw new ArgumentOutOfRangeException(nameof(value), value, "A prime number must be greater than or equal to 2.");
         }
 
-        var actualBitLength = value.GetBitLength();
-        if (actualBitLength != expectedBitLength.Value)
+        long actualBitLength = value.GetBitLength();
+        if (actualBitLength != bitLength)
         {
             throw new ArgumentException(
-                $"The prime number bit length is {actualBitLength}, but {expectedBitLength.Value} was expected.",
+                $"The prime number bit length is {actualBitLength}, but {bitLength} was expected.",
                 nameof(value));
         }
 
-        return new PrimeNumber(value, expectedBitLength, generatedAt);
+        Value = value;
+        BitLength = bitLength;
+        GeneratedAt = generatedAt;
     }
 
     /// <summary>
@@ -60,7 +63,7 @@ public sealed class PrimeNumber : IEquatable<PrimeNumber>
     {
         return other is not null
             && Value.Equals(other.Value)
-            && BitLength.Equals(other.BitLength)
+            && BitLength == other.BitLength
             && GeneratedAt.Equals(other.GeneratedAt);
     }
 

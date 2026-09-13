@@ -1,5 +1,3 @@
-# Целевая длина простого числа по заданию — 16384 бита.
-# Для быстрой локальной проверки уменьшите BitLength, например до 64.
 PrimeNumberGeneration:
   BitLength: 16384
   MillerRabinWitnessRoundCount: 3
@@ -12,10 +10,6 @@ PrimeNumberGeneration:
   MaxProcessorUtilizationPercent: 100
   # Lowest | BelowNormal | Normal
   WorkerThreadPriority: BelowNormal
-
-# Destination: Console или Kafka
-Publishing:
-  Destination: Console
 
 Kafka:
   BootstrapServers: localhost:9094

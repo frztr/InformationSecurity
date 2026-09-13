@@ -1,50 +1,12 @@
 # InformationSecurity
 
-Веб-приложение на ASP.NET Core, которое фоновым воркером непрерывно генерирует **16384-битные** вероятностно простые числа (тест Миллера–Рабина) и публикует их в **Kafka** или в **консоль** по мере нахождения. Несколько потоков ищут независимо и не отменяют друг друга. Нагрузка на процессор ограничена, чтобы не мешать другим сервисам. Настройки читаются из YAML.
-
-## Архитектура
-
-Код разделён по слоям в стиле DDD:
-
-| Проект | Назначение |
-| --- | --- |
-| `PrimeNumberGenerator.Domain` | Модель предметной области: длина в битах, простое число, генерация кандидатов, пробное деление, тест Миллера–Рабина |
-| `PrimeNumberGenerator.Application` | Сценарий «сгенерировать и опубликовать», настройки, порты публикации |
-| `PrimeNumberGenerator.Infrastructure` | Kafka, консоль, чтение опций, регистрация зависимостей |
-| `PrimeNumberGenerator.Api` | Хост процесса: фоновый воркер и проверка живости `/health` |
-
-## Требования
-
-- .NET 8 SDK
-- Docker и Docker Compose — для локальных Kafka, Kafka UI и запуска приложения в контейнере
+Веб-приложение на ASP.NET Core, которое фоновым воркером непрерывно генерирует **16384-битные** вероятностно простые числа (тест Миллера–Рабина) и публикует их в **Kafka** по мере нахождения. Несколько потоков ищут независимо и не отменяют друг друга. Нагрузка на процессор ограничена, чтобы не мешать другим сервисам. Настройки читаются из YAML.
 
 ## Локальный запуск
 
-Полный стек (приложение + Kafka + Kafka UI):
+В `Development` приложение читает `appsettings.Development.yml`: битовая длина **64** (чтобы не ждать генерацию 16384-битного числа).
 
-```bash
-docker compose up --build
-```
-
-Только Kafka и Kafka UI, если приложение запускаете с хоста:
-
-```bash
-docker compose up -d kafka kafka-ui
-dotnet run --project src/PrimeNumberGenerator.Api
-```
-
-После старта:
-
-- Проверка живости: http://localhost:5080/health
-- [Kafka UI](http://localhost:8081): http://localhost:8081
-- Kafka для приложения с хоста: `localhost:9094`
-- Kafka из Docker-сети: `kafka:9092`
-
-Остановка: `docker compose down`.
-
-В `Development` приложение читает `appsettings.Development.yml`: битовая длина **64** (чтобы не ждать генерацию 16384-битного числа) и публикация в **Kafka**.
-
-Чтобы включить требование задания (16384 бита), задайте в YAML:
+По умолчанию генерируются 16384-битные числа:
 
 ```yaml
 PrimeNumberGeneration:
@@ -86,17 +48,18 @@ PrimeNumberGeneration:
 
 В `docker-compose` CPU-квоты нет, только лимит памяти.
 
-## Куда отправлять числа
+## Kafka
+
+Числа уходят JSON-сообщениями в топик `prime-numbers`. Смотреть их можно в Kafka UI.
 
 В `src/PrimeNumberGenerator.Api/appsettings.yml` или `appsettings.Development.yml`:
 
 ```yaml
-Publishing:
-  Destination: Console   # или Kafka
+Kafka:
+  BootstrapServers: localhost:9094
+  Topic: prime-numbers
+  ClientId: prime-number-generator
 ```
-
-- `Console` — число пишется в лог приложения
-- `Kafka` — JSON-сообщение в топик `prime-numbers`; его можно смотреть в Kafka UI
 
 YAML подключается пакетом `NetEscapades.Configuration.Yaml`.
 
@@ -113,7 +76,7 @@ docker run --rm -p 5080:8080 --memory=1g prime-number-generator:local
 
 GitHub Actions workflow: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml).
 
-На каждый push и pull request запускаются тесты. После успешного прогона на push образ собирается и публикуется в Docker Hub:
+На каждый push и pull request собирается Docker-образ. На push он публикуется в Docker Hub:
 
 `<DOCKERHUB_USERNAME>/prime-number-generator`
 
@@ -125,14 +88,6 @@ GitHub Actions workflow: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd
 | `DOCKERHUB_TOKEN` | Access Token Docker Hub с правом push |
 
 Теги образа: `latest` (только default-ветка), `sha-<commit>`, имя ветки.
-
-## Тесты
-
-```bash
-dotnet test
-```
-
-Тесты генерации используют короткие числа (8 и 16 бит), а не 16384 бита. Независимые поиски проверяются на уровне прикладного сервиса.
 
 ## Полезные настройки
 
@@ -146,6 +101,5 @@ dotnet test
 | `PrimeNumberGeneration:ReservedIdleProcessorCount` | Сколько ядер оставить свободными при автоматическом подборе |
 | `PrimeNumberGeneration:MaxProcessorUtilizationPercent` | Целевая загрузка каждого потока поиска (1–100) |
 | `PrimeNumberGeneration:WorkerThreadPriority` | `Lowest`, `BelowNormal` или `Normal` |
-| `Publishing:Destination` | `Console` или `Kafka` |
 | `Kafka:BootstrapServers` | Адрес брокера (`localhost:9094` с хоста, `kafka:9092` из Docker) |
 | `Kafka:Topic` | Топик для публикации |

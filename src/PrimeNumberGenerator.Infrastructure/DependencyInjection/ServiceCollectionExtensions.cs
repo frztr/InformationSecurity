@@ -47,14 +47,6 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
 
         serviceCollection
-            .AddOptions<PublishingOptions>()
-            .Bind(configuration.GetSection(PublishingOptions.SectionName))
-            .Validate(
-                options => Enum.IsDefined(options.Destination),
-                "Publishing:Destination must be Console or Kafka.")
-            .ValidateOnStart();
-
-        serviceCollection
             .AddOptions<KafkaOptions>()
             .Bind(configuration.GetSection(KafkaOptions.SectionName))
             .Validate(
@@ -68,18 +60,11 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddSingleton(TimeProvider.System);
         serviceCollection.AddSingleton<IRandomIntegerSource, CryptographicRandomIntegerSource>();
         serviceCollection.AddSingleton<IPrimeCandidateSource, CryptographicOddPrimeCandidateSource>();
-        serviceCollection.AddSingleton<TrialDivisionFilter>();
         serviceCollection.AddSingleton<IPrimalityTester, MillerRabinPrimalityTester>();
         serviceCollection.AddSingleton<IProcessorLoadGovernor, ProcessorLoadGovernor>();
         serviceCollection.AddSingleton<IPrimeNumberGenerator, ProbablePrimeNumberGenerator>();
         serviceCollection.AddSingleton<PrimeNumberGenerationProcessor>();
-
-        serviceCollection.AddSingleton<IKafkaProducerFactory, KafkaProducerFactory>();
-        serviceCollection.AddSingleton<ConsolePrimeNumberPublisher>();
-        serviceCollection.AddSingleton<KafkaPrimeNumberPublisher>();
-        serviceCollection.AddSingleton<PrimeNumberPublisherFactory>();
-        serviceCollection.AddSingleton<IPrimeNumberPublisher>(serviceProvider =>
-            serviceProvider.GetRequiredService<PrimeNumberPublisherFactory>().Resolve());
+        serviceCollection.AddSingleton<IPrimeNumberPublisher, KafkaPrimeNumberPublisher>();
 
         return serviceCollection;
     }

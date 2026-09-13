@@ -6,18 +6,8 @@ namespace PrimeNumberGenerator.Domain.PrimeNumbers.Primality;
 /// <summary>
 /// Вероятностный тест Миллера–Рабина со случайными свидетелями.
 /// </summary>
-public sealed class MillerRabinPrimalityTester : IPrimalityTester
+public sealed class MillerRabinPrimalityTester(IRandomIntegerSource randomIntegerSource) : IPrimalityTester
 {
-    private readonly IRandomIntegerSource _randomIntegerSource;
-
-    /// <summary>
-    /// Создаёт тестер, который берёт свидетелей из <paramref name="randomIntegerSource"/>.
-    /// </summary>
-    public MillerRabinPrimalityTester(IRandomIntegerSource randomIntegerSource)
-    {
-        _randomIntegerSource = randomIntegerSource;
-    }
-
     /// <summary>
     /// Возвращает true, если число равно 2 или 3 либо проходит все раунды Миллера–Рабина.
     /// </summary>
@@ -49,9 +39,9 @@ public sealed class MillerRabinPrimalityTester : IPrimalityTester
             return false;
         }
 
-        var numberUnderTestMinusOne = numberUnderTest - BigInteger.One;
-        var powerOfTwoExponent = 0;
-        var oddComponent = numberUnderTestMinusOne;
+        BigInteger numberUnderTestMinusOne = numberUnderTest - BigInteger.One;
+        int powerOfTwoExponent = 0;
+        BigInteger oddComponent = numberUnderTestMinusOne;
 
         while (oddComponent % 2 == 0)
         {
@@ -59,20 +49,20 @@ public sealed class MillerRabinPrimalityTester : IPrimalityTester
             powerOfTwoExponent++;
         }
 
-        for (var roundIndex = 0; roundIndex < millerRabinWitnessRoundCount; roundIndex++)
+        for (int roundIndex = 0; roundIndex < millerRabinWitnessRoundCount; roundIndex++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var witness = _randomIntegerSource.NextInclusive(2, numberUnderTest - 2);
-            var modularPower = BigInteger.ModPow(witness, oddComponent, numberUnderTest);
+            BigInteger witness = randomIntegerSource.NextInclusive(2, numberUnderTest - 2);
+            BigInteger modularPower = BigInteger.ModPow(witness, oddComponent, numberUnderTest);
 
             if (modularPower == BigInteger.One || modularPower == numberUnderTestMinusOne)
             {
                 continue;
             }
 
-            var currentRoundPassed = false;
-            for (var squaringIndex = 1; squaringIndex < powerOfTwoExponent; squaringIndex++)
+            bool currentRoundPassed = false;
+            for (int squaringIndex = 1; squaringIndex < powerOfTwoExponent; squaringIndex++)
             {
                 modularPower = BigInteger.ModPow(modularPower, 2, numberUnderTest);
                 if (modularPower == numberUnderTestMinusOne)

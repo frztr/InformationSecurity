@@ -46,7 +46,7 @@ public static class ParallelSearchWorkerCountResolver
             return configuredWorkerCount;
         }
 
-        var processorCountKeptIdle = Math.Min(reservedIdleProcessorCount, availableProcessorCount - 1);
+        int processorCountKeptIdle = Math.Min(reservedIdleProcessorCount, availableProcessorCount - 1);
         return Math.Max(1, availableProcessorCount - processorCountKeptIdle);
     }
 }

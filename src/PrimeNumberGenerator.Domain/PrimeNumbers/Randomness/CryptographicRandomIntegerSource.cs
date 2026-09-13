@@ -32,8 +32,8 @@ public sealed class CryptographicRandomIntegerSource : IRandomIntegerSource
                 "Верхняя граница включительно должна быть не меньше нижней.");
         }
 
-        var rangeSize = inclusiveMaximum - inclusiveMinimum + BigInteger.One;
-        var randomOffset = NextExclusiveUpperBound(rangeSize);
+        BigInteger rangeSize = inclusiveMaximum - inclusiveMinimum + BigInteger.One;
+        BigInteger randomOffset = NextExclusiveUpperBound(rangeSize);
         return inclusiveMinimum + randomOffset;
     }
 
@@ -50,10 +50,10 @@ public sealed class CryptographicRandomIntegerSource : IRandomIntegerSource
                 "Верхняя граница исключительно должна быть больше нуля.");
         }
 
-        var byteCount = exclusiveUpperBound.GetByteCount(isUnsigned: true);
-        var buffer = new byte[byteCount];
-        var bitLength = exclusiveUpperBound.GetBitLength();
-        var excessBitCount = (int)(byteCount * 8 - bitLength);
+        int byteCount = exclusiveUpperBound.GetByteCount(isUnsigned: true);
+        byte[] buffer = new byte[byteCount];
+        long bitLength = exclusiveUpperBound.GetBitLength();
+        int excessBitCount = (int)(byteCount * 8 - bitLength);
 
         BigInteger candidate;
         do

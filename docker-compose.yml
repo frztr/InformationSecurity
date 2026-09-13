@@ -54,7 +54,6 @@ services:
       - "5080:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      Publishing__Destination: Kafka
       Kafka__BootstrapServers: kafka:9092
       Kafka__ClientId: prime-number-generator-docker
       PrimeNumberGeneration__BitLength: 16384

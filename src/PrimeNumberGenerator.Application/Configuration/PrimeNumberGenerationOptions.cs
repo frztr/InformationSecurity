@@ -14,9 +14,9 @@ public sealed class PrimeNumberGenerationOptions
     public const string SectionName = "PrimeNumberGeneration";
 
     /// <summary>
-    /// Битовая длина генерируемых чисел. По заданию — 16384.
+    /// Битовая длина генерируемых чисел.
     /// </summary>
-    public int BitLength { get; set; } = Domain.PrimeNumbers.BitLength.AssignmentRequiredValue;
+    public int BitLength { get; set; } = 16384;
 
     /// <summary>
     /// Число раундов Миллера–Рабина. Для 16384 бит достаточно трёх случайных свидетелей.

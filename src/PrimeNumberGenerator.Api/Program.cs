@@ -1,7 +1,7 @@
 using PrimeNumberGenerator.Api.Workers;
 using PrimeNumberGenerator.Infrastructure.DependencyInjection;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.Sources.Clear();
 builder.Configuration
@@ -14,7 +14,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddPrimeNumberGeneration(builder.Configuration);
 builder.Services.AddHostedService<PrimeNumberGenerationWorker>();
 
-var application = builder.Build();
+WebApplication application = builder.Build();
 
 if (!application.Environment.IsDevelopment())
 {

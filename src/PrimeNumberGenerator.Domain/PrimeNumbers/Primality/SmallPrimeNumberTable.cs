@@ -20,11 +20,11 @@ public static class SmallPrimeNumberTable
     /// </summary>
     private static IReadOnlyList<int> GenerateFirstPrimeNumbers(int primeCount)
     {
-        var sieveLimit = EstimateSieveLimit(primeCount);
-        var isComposite = new bool[sieveLimit + 1];
-        var primeNumbers = new List<int>(primeCount);
+        int sieveLimit = EstimateSieveLimit(primeCount);
+        bool[] isComposite = new bool[sieveLimit + 1];
+        List<int> primeNumbers = new List<int>(primeCount);
 
-        for (var candidate = 2; candidate <= sieveLimit && primeNumbers.Count < primeCount; candidate++)
+        for (int candidate = 2; candidate <= sieveLimit && primeNumbers.Count < primeCount; candidate++)
         {
             if (isComposite[candidate])
             {
@@ -33,7 +33,7 @@ public static class SmallPrimeNumberTable
 
             primeNumbers.Add(candidate);
 
-            for (var multiple = candidate * 2; multiple <= sieveLimit; multiple += candidate)
+            for (int multiple = candidate * 2; multiple <= sieveLimit; multiple += candidate)
             {
                 isComposite[multiple] = true;
             }
@@ -58,8 +58,8 @@ public static class SmallPrimeNumberTable
             return 15;
         }
 
-        var primeCountAsDouble = (double)primeCount;
-        var upperBound = primeCountAsDouble * (Math.Log(primeCountAsDouble) + Math.Log(Math.Log(primeCountAsDouble)));
+        double primeCountAsDouble = (double)primeCount;
+        double upperBound = primeCountAsDouble * (Math.Log(primeCountAsDouble) + Math.Log(Math.Log(primeCountAsDouble)));
         return (int)Math.Ceiling(upperBound) + 32;
     }
 }

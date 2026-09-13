@@ -9,7 +9,7 @@ public interface IPrimeNumberGenerator
     /// Ищет число, пока не найдёт вероятностно простое или пока не сработает <paramref name="cancellationToken"/>.
     /// </summary>
     Task<PrimeNumber> GenerateAsync(
-        BitLength bitLength,
+        int bitLength,
         PrimeGenerationParameters generationParameters,
         CancellationToken cancellationToken);
 }

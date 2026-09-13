@@ -62,7 +62,7 @@ public sealed class ProcessorLoadPolicy
             return TimeSpan.Zero;
         }
 
-        var idleMilliseconds = spentWorking.TotalMilliseconds
+        double idleMilliseconds = spentWorking.TotalMilliseconds
             * (FullUtilizationPercent - MaxProcessorUtilizationPercent)
             / MaxProcessorUtilizationPercent;
 

@@ -10,5 +10,5 @@ public interface IPrimeCandidateSource
     /// <summary>
     /// Возвращает нечётное число со старшим битом, чтобы длина совпадала с <paramref name="bitLength"/>.
     /// </summary>
-    BigInteger NextOddCandidate(BitLength bitLength);
+    BigInteger NextOddCandidate(int bitLength);
 }
