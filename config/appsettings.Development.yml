@@ -1,0 +1,10 @@
+kafka:
+  brokers:
+    - localhost:9094
+
+database:
+  host: localhost
+
+smtp:
+  host: localhost
+  port: 1025

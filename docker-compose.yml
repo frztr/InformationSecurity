@@ -1,0 +1,283 @@
+name: information-security-webapp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: is-webapp-postgres
+    environment:
+      POSTGRES_DB: information_security
+      POSTGRES_USER: is_app
+      POSTGRES_PASSWORD: is_app_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U is_app -d information_security"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:alpine
+    container_name: is-webapp-mailu-redis
+    volumes:
+      - mailu_redis:/data
+    networks:
+      - mailu
+
+  resolver:
+    image: ghcr.io/mailu/unbound:2024.06
+    container_name: is-webapp-mailu-resolver
+    env_file: docker/mailu/mailu.env
+    networks:
+      mailu:
+        ipv4_address: 192.168.203.254
+
+  front:
+    image: ghcr.io/mailu/nginx:2024.06
+    container_name: is-webapp-mailu-front
+    env_file: docker/mailu/mailu.env
+    ports:
+      - "8025:80"
+      - "1025:25"
+    volumes:
+      - mailu_certs:/certs
+      - ./docker/mailu/overrides/nginx:/overrides:ro
+    depends_on:
+      - redis
+    networks:
+      - mailu
+
+  admin:
+    image: ghcr.io/mailu/admin:2024.06
+    container_name: is-webapp-mailu-admin
+    env_file: docker/mailu/mailu.env
+    volumes:
+      - mailu_data:/data
+      - mailu_dkim:/dkim
+    dns:
+      - 192.168.203.254
+    depends_on:
+      - redis
+      - resolver
+    networks:
+      - mailu
+
+  imap:
+    image: ghcr.io/mailu/dovecot:2024.06
+    container_name: is-webapp-mailu-imap
+    env_file: docker/mailu/mailu.env
+    volumes:
+      - mailu_mail:/mail
+      - ./docker/mailu/overrides/dovecot:/overrides:ro
+    depends_on:
+      - front
+    networks:
+      - mailu
+
+  smtp:
+    image: ghcr.io/mailu/postfix:2024.06
+    container_name: is-webapp-mailu-smtp
+    env_file: docker/mailu/mailu.env
+    volumes:
+      - mailu_mailqueue:/queue
+      - ./docker/mailu/overrides/postfix:/overrides:ro
+    depends_on:
+      - front
+    networks:
+      - mailu
+
+  antispam:
+    image: ghcr.io/mailu/rspamd:2024.06
+    container_name: is-webapp-mailu-antispam
+    hostname: antispam
+    env_file: docker/mailu/mailu.env
+    volumes:
+      - mailu_filter:/var/lib/rspamd
+      - ./docker/mailu/overrides/rspamd:/overrides:ro
+    depends_on:
+      - front
+      - redis
+    networks:
+      - mailu
+
+  webmail:
+    image: ghcr.io/mailu/webmail:2024.06
+    container_name: is-webapp-mailu-webmail
+    env_file: docker/mailu/mailu.env
+    volumes:
+      - mailu_webmail:/data
+      - ./docker/mailu/overrides/snappymail:/overrides:ro
+    depends_on:
+      - front
+    networks:
+      - mailu
+
+  mailu-bootstrap:
+    image: ghcr.io/mailu/admin:2024.06
+    container_name: is-webapp-mailu-bootstrap
+    env_file: docker/mailu/mailu.env
+    volumes:
+      - mailu_data:/data
+      - mailu_dkim:/dkim
+      - ./docker/mailu/bootstrap.yml:/bootstrap.yml:ro
+      - ./docker/mailu/bootstrap.sh:/bootstrap.sh:ro
+    depends_on:
+      - admin
+    restart: "no"
+    networks:
+      - mailu
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+
+  kafka:
+    image: apache/kafka:latest
+    hostname: kafka
+    container_name: is-webapp-kafka
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 40s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: is-webapp-kafka-ui
+    ports:
+      - "8081:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  kafka-topics:
+    image: apache/kafka:latest
+    container_name: is-webapp-kafka-topics
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/opt/kafka/bin/kafka-topics.sh"]
+    command:
+      - --bootstrap-server
+      - kafka:9092
+      - --create
+      - --if-not-exists
+      - --topic
+      - prime-numbers
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
+
+  prime-number-generator:
+    image: frztr/prime-number-generator:IS-prime-number-generator
+    container_name: is-webapp-prime-number-generator
+    ports:
+      - "5080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Kafka__BootstrapServers: kafka:9092
+      Kafka__Topic: prime-numbers
+      Kafka__ClientId: prime-number-generator-docker
+      PrimeNumberGeneration__BitLength: 16384
+      PrimeNumberGeneration__ParallelSearchWorkerCount: 0
+      PrimeNumberGeneration__ReservedIdleProcessorCount: 1
+      PrimeNumberGeneration__MaxProcessorUtilizationPercent: 100
+      PrimeNumberGeneration__WorkerThreadPriority: BelowNormal
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-topics:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: is-webapp-web
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://is_app:is_app_password@postgres:5432/information_security
+      APP_CONFIG_DIRECTORY: /app/config
+      RSA_MODULUS_BIT_LENGTH: "32768"
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: prime-numbers
+      KAFKA_CLIENT_ID: is-webapp
+      KAFKA_GROUP_ID: is-webapp-rsa-key-assembler
+    volumes:
+      - ./config:/app/config:ro
+    networks:
+      - default
+      - mailu
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-topics:
+        condition: service_completed_successfully
+      front:
+        condition: service_started
+      smtp:
+        condition: service_started
+      antispam:
+        condition: service_started
+      imap:
+        condition: service_started
+      webmail:
+        condition: service_started
+      mailu-bootstrap:
+        condition: service_completed_successfully
+      prime-number-generator:
+        condition: service_started
+
+networks:
+  mailu:
+    name: is-webapp-mailu
+    ipam:
+      config:
+        - subnet: 192.168.203.0/24
+
+volumes:
+  postgres_data:
+  mailu_redis:
+  mailu_data:
+  mailu_dkim:
+  mailu_mail:
+  mailu_mailqueue:
+  mailu_filter:
+  mailu_webmail:
+  mailu_certs:

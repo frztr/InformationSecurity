@@ -1,0 +1,15 @@
+domain:
+  - name: information-security.org
+    signup_enabled: true
+    max_users: -1
+    max_aliases: -1
+    max_quota_bytes: 0
+user:
+  - email: noreply@information-security.org
+    password: "Noreply#12345"
+    hash_password: false
+    displayed_name: Noreply
+    enabled: true
+    global_admin: false
+    enable_imap: true
+    enable_pop: false

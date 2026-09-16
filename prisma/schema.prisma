@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum EncryptionMethod {
+  RSA
+  KUZNYECHIK
+}
+
+enum RsaKeyStatus {
+  GENERATING
+  READY
+}
+
+enum EmailOtpPurpose {
+  LOGIN
+  PASSWORD_RESET
+}
+
+model User {
+  id               String   @id @default(uuid())
+  login            String   @unique
+  email            String   @unique
+  role             UserRole
+  passwordHash     String
+  passwordSalt     String
+  totpSecretBase32 String
+  createdAt        DateTime @default(now())
+
+  recoveryCodes    RecoveryCode[]
+  messages         EncryptedMessage[]
+  emailOtps        EmailOtp[]
+  passwordResets   PasswordResetToken[]
+  sessions         AuthSession[]
+  pendingLogins    PendingLogin[]
+}
+
+model RecoveryCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+
+  @@index([userId, codeHash])
+}
+
+model EmailOtp {
+  id         String          @id @default(uuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose    EmailOtpPurpose
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  @@index([userId, purpose, codeHash])
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+}
+
+model EncryptedMessage {
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  method           EncryptionMethod
+  plaintext        String
+  ciphertextHex    String
+  keyMaterialJson  String?
+  createdAt        DateTime          @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model EncryptionMethodSetting {
+  method  EncryptionMethod @id
+  enabled Boolean
+}
+
+model SystemRsaKey {
+  id                 String       @id @default("system")
+  status             RsaKeyStatus
+  modulusBitLength   Int
+  modulusHex         String?
+  publicExponent     String?
+  privateExponentHex String?
+  primePHex          String?
+  primeQHex          String?
+  updatedAt          DateTime     @updatedAt
+}
+
+model CollectedRsaPrime {
+  id           String   @id @default(uuid())
+  valueHash    String   @unique
+  decimalValue String
+  bitLength    Int
+  createdAt    DateTime @default(now())
+
+  @@index([bitLength, createdAt])
+}
+
+model AuthSession {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model PendingLogin {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordVerified Boolean  @default(true)
+  emailVerified    Boolean  @default(false)
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+}

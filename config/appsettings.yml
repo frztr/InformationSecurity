@@ -1,0 +1,36 @@
+rsa:
+  modulusBitLength: 32768
+  publicExponent: 65537
+  millerRabinWitnessRoundCount: 3
+  trialDivisionPrimeCount: 10000
+
+kafka:
+  brokers:
+    - kafka:9092
+  topic: prime-numbers
+  clientId: is-webapp
+  groupId: is-webapp-rsa-key-assembler
+
+database:
+  host: postgres
+  port: 5432
+  name: information_security
+  user: is_app
+
+smtp:
+  host: front
+  port: 25
+  from: noreply@information-security.org
+
+mail:
+  domain: information-security.org
+  webmailUrl: http://localhost:8025/webmail
+  signupUrl: http://localhost:8025/admin/user/signup/information-security.org
+
+auth:
+  emailOtpTtlSeconds: 300
+  sessionTtlHours: 12
+  totpIssuer: InformationSecurity
+  recoveryCodeCount: 10
+  passwordResetTtlMinutes: 30
+  pendingLoginTtlMinutes: 15
