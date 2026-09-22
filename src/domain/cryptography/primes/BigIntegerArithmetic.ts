@@ -1,3 +1,8 @@
+/**
+ * Возвращает битовую длину неотрицательного целого.
+ * @param value Неотрицательное целое.
+ * @returns Число бит; для нуля — 0.
+ */
 export function bitLengthOf(value: bigint): number {
   if (value < 0n) {
     throw new Error("Длина в битах определена только для неотрицательных чисел.");
@@ -8,6 +13,13 @@ export function bitLengthOf(value: bigint): number {
   return value.toString(2).length;
 }
 
+/**
+ * Возводит основание в степень по модулю (двоичное возведение).
+ * @param base Основание.
+ * @param exponent Показатель.
+ * @param modulus Положительный модуль.
+ * @returns base^exponent mod modulus.
+ */
 export function modularPower(base: bigint, exponent: bigint, modulus: bigint): bigint {
   if (modulus <= 0n) {
     throw new Error("Модуль должен быть положительным.");
@@ -28,6 +40,12 @@ export function modularPower(base: bigint, exponent: bigint, modulus: bigint): b
   return result;
 }
 
+/**
+ * Вычисляет наибольший общий делитель (алгоритм Евклида).
+ * @param left Первое целое.
+ * @param right Второе целое.
+ * @returns НОД(|left|, |right|).
+ */
 export function greatestCommonDivisor(left: bigint, right: bigint): bigint {
   let first = left < 0n ? -left : left;
   let second = right < 0n ? -right : right;
@@ -39,36 +57,52 @@ export function greatestCommonDivisor(left: bigint, right: bigint): bigint {
   return first;
 }
 
+/**
+ * Вычисляет обратный элемент по модулю (расширенный алгоритм Евклида).
+ * @param value Число, взаимно простое с модулем.
+ * @param modulus Модуль.
+ * @returns value⁻¹ mod modulus.
+ */
 export function modularInverse(value: bigint, modulus: bigint): bigint {
-  let oldT = 0n;
-  let currentT = 1n;
-  let oldR = modulus;
-  let currentR = ((value % modulus) + modulus) % modulus;
+  let previousCoefficient = 0n;
+  let coefficient = 1n;
+  let previousRemainder = modulus;
+  let remainder = ((value % modulus) + modulus) % modulus;
 
-  while (currentR !== 0n) {
-    const quotient = oldR / currentR;
-    const nextT = oldT - quotient * currentT;
-    const nextR = oldR - quotient * currentR;
-    oldT = currentT;
-    currentT = nextT;
-    oldR = currentR;
-    currentR = nextR;
+  while (remainder !== 0n) {
+    const quotient = previousRemainder / remainder;
+    const nextCoefficient = previousCoefficient - quotient * coefficient;
+    const nextRemainder = previousRemainder - quotient * remainder;
+    previousCoefficient = coefficient;
+    coefficient = nextCoefficient;
+    previousRemainder = remainder;
+    remainder = nextRemainder;
   }
 
-  if (oldR !== 1n) {
+  if (previousRemainder !== 1n) {
     throw new Error("Обратный элемент не существует: числа не взаимно просты.");
   }
 
-  return ((oldT % modulus) + modulus) % modulus;
+  return ((previousCoefficient % modulus) + modulus) % modulus;
 }
 
+/**
+ * Вычисляет наименьшее общее кратное.
+ * @param left Первое целое.
+ * @param right Второе целое.
+ * @returns НОК(left, right).
+ */
 export function leastCommonMultiple(left: bigint, right: bigint): bigint {
   return (left / greatestCommonDivisor(left, right)) * right;
 }
 
 /**
  * CRT-ускорение RSA: c^d mod (p·q) через два возведения по модулям p и q.
- * Без этого расшифрование и ЭЦП на RSA-32768 в JS практически не завершаются.
+ * @param ciphertext Основание c.
+ * @param privateExponent Показатель d.
+ * @param primeP Простой множитель модуля p.
+ * @param primeQ Простой множитель модуля q.
+ * @returns c^d mod (p·q).
  */
 export function rsaCrtModularPower(
   ciphertext: bigint,

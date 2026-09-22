@@ -1,7 +1,18 @@
-import type { EmailOtpPurpose, EmailOtpRecord, EmailOtpRepository } from "@/domain/identity/EmailOtpRepository";
+import type { EmailOtpPurpose, EmailOtpRecord, IEmailOtpRepository } from "@/domain/identity/IEmailOtpRepository";
 import { getPrismaClient } from "@/infrastructure/persistence/prisma/PrismaClientSingleton";
 
-export class PrismaEmailOtpRepository implements EmailOtpRepository {
+/**
+ * Реализация IEmailOtpRepository на Prisma.
+ */
+export class PrismaEmailOtpRepository implements IEmailOtpRepository {
+  /**
+   * Сохраняет OTP с хэшем кода и сроком действия.
+   * @param userId Идентификатор пользователя.
+   * @param purpose Назначение кода.
+   * @param codeHash Хэш кода.
+   * @param expiresAt Срок действия.
+   * @returns Созданная запись без хэша кода.
+   */
   public async create(
     userId: string,
     purpose: EmailOtpPurpose,
@@ -14,6 +25,14 @@ export class PrismaEmailOtpRepository implements EmailOtpRepository {
     return { id: record.id, userId: record.userId, purpose: record.purpose, expiresAt: record.expiresAt };
   }
 
+  /**
+   * Помечает неиспользованный неистёкший OTP как использованный.
+   * @param userId Идентификатор пользователя.
+   * @param purpose Назначение кода.
+   * @param codeHash Хэш предъявленного кода.
+   * @param now Текущий момент.
+   * @returns true, если обновлена хотя бы одна строка.
+   */
   public async consumeUnused(
     userId: string,
     purpose: EmailOtpPurpose,

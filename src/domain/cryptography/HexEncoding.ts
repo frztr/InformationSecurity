@@ -1,3 +1,8 @@
+/**
+ * Разбирает шестнадцатеричную строку в байты. Пробелы игнорируются.
+ * @param hex Шестнадцатеричная запись; длина без пробелов должна быть чётной.
+ * @returns Соответствующий массив байт.
+ */
 export function parseHexString(hex: string): Uint8Array {
   const compactHex = hex.replace(/\s+/g, "");
   if (compactHex.length % 2 !== 0) {
@@ -11,6 +16,11 @@ export function parseHexString(hex: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Кодирует байты в шестнадцатеричную строку без разделителей.
+ * @param bytes Исходные байты.
+ * @returns Строка из пар символов 0–9 и a–f.
+ */
 export function toHexString(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }

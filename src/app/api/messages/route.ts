@@ -1,35 +1,32 @@
 import { NextResponse } from "next/server";
-import { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { authenticate } from "@/infrastructure/http/AuthenticationMiddleware";
+import { EncryptMessageRequest } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
 export const maxDuration = 120;
 
-export async function GET(): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user) {
-    return NextResponse.json({ error: "Нужна аутентификация" }, { status: 401 });
-  }
+/**
+ * GET: журнал зашифрованных сообщений, доступных текущему пользователю. Требует аутентификацию.
+ */
+export const GET = endpoint(authenticate, async ({ user }) => {
+  const { messages } = await getReadyServices();
+  return NextResponse.json({ messages: await messages.getEncryptedMessages(user) });
+});
 
-  const messages = await getApplicationComposer().listMessagesUseCase.execute(user);
-  return NextResponse.json({ messages });
-}
-
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user) {
-    return NextResponse.json({ error: "Нужна аутентификация" }, { status: 401 });
-  }
-
-  const body = (await request.json()) as { plaintext?: string; method?: string };
-  const method = body.method === EncryptionMethod.KUZNYECHIK ? EncryptionMethod.KUZNYECHIK : EncryptionMethod.RSA;
-
-  try {
-    const message = await getApplicationComposer().encryptMessageUseCase.execute(user.id, body.plaintext ?? "", method);
-    return NextResponse.json({ message });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка шифрования" }, { status: 400 });
-  }
-}
+/**
+ * POST: шифрует текст выбранным методом и сохраняет запись. Требует аутентификацию.
+ */
+export const POST = endpoint(
+  authenticate,
+  jsonBody(EncryptMessageRequest),
+  catchErrors(400, "Ошибка шифрования"),
+  async ({ user, body }) => {
+    const { messages } = await getReadyServices();
+    return jsonFromResult(await messages.encryptMessage(user.id, body.plaintext, body.method), 400, (message) => ({
+      message,
+    }));
+  },
+);

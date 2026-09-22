@@ -3,6 +3,12 @@ import { modularInverse } from "@/domain/cryptography/primes/BigIntegerArithmeti
 const RSA_ENCRYPTION_OID = Uint8Array.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01]);
 const ASN1_NULL = Uint8Array.from([0x05, 0x00]);
 
+/**
+ * Кодирует открытый ключ RSA в PEM SPKI (SubjectPublicKeyInfo).
+ * @param modulus Модуль n.
+ * @param publicExponent Открытая экспонента e.
+ * @returns PEM-блок PUBLIC KEY.
+ */
 export function encodeRsaPublicKeySpkiPem(modulus: bigint, publicExponent: bigint): string {
   const rsaPublicKey = encodeSequence(encodeInteger(modulus), encodeInteger(publicExponent));
   const algorithm = encodeSequence(RSA_ENCRYPTION_OID, ASN1_NULL);
@@ -10,6 +16,15 @@ export function encodeRsaPublicKeySpkiPem(modulus: bigint, publicExponent: bigin
   return encodePem("PUBLIC KEY", subjectPublicKeyInfo);
 }
 
+/**
+ * Кодирует закрытый ключ RSA в PEM PKCS#1.
+ * @param modulus Модуль n.
+ * @param publicExponent Открытая экспонента e.
+ * @param privateExponent Закрытая экспонента d.
+ * @param primeP Простой множитель p.
+ * @param primeQ Простой множитель q.
+ * @returns PEM-блок RSA PRIVATE KEY.
+ */
 export function encodeRsaPrivateKeyPkcs1Pem(
   modulus: bigint,
   publicExponent: bigint,

@@ -18,6 +18,7 @@ export const STREEBOG_LINEAR_MATRIX_ROWS: readonly bigint[] = [
   0x07e095624504536cn, 0x8d70c431ac02a736n, 0xc83862965601dd1bn, 0x641c314b2b8ee083n,
 ];
 
+/** Перестановка байт τ линейного преобразования LPS Стрибога. */
 export const STREEBOG_BYTE_PERMUTATION_TAU: readonly number[] = [
   0, 8, 16, 24, 32, 40, 48, 56, 1, 9, 17, 25, 33, 41, 49, 57, 2, 10, 18, 26, 34, 42, 50, 58, 3, 11, 19, 27, 35, 43, 51,
   59, 4, 12, 20, 28, 36, 44, 52, 60, 5, 13, 21, 29, 37, 45, 53, 61, 6, 14, 22, 30, 38, 46, 54, 62, 7, 15, 23, 31, 39, 47,
@@ -33,6 +34,7 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+/** Раундовые константы C_1 … C_12 преобразования E (RFC 6986). */
 export const STREEBOG_ROUND_CONSTANTS: readonly Uint8Array[] = [
   hexToBytes(`
     b1085bda1ecadae9ebcb2f81c0657c1f

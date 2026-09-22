@@ -2,20 +2,21 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { getCurrentUser } from "@/infrastructure/http/AuthenticationMiddleware";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Публичная главная: обзор системы, роли, методы шифрования и статус ключей RSA.
+ */
 export default async function HomePage() {
-  await initializeApplication();
-  const composer = getApplicationComposer();
-  const rsa = await composer.systemRsaKeyStore.getStatus();
-  const methods = await composer.encryptionMethodCatalog.list();
-  const actor = await resolveSessionUser(await readSessionToken());
-  const modulusBitLength = Number(process.env.RSA_MODULUS_BIT_LENGTH ?? composer.settings.rsa.modulusBitLength);
-  const expectedPrimeBitLength = modulusBitLength / 2;
-  const collectedPrimeCount = await composer.collectedPrimeNumberRepository.countByBitLength(expectedPrimeBitLength);
+  const { administration, system } = await getReadyServices();
+  const [actor, methods, status] = await Promise.all([
+    getCurrentUser(),
+    administration.getAllEncryptionMethods(),
+    system.getSystemStatus(),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-10">
@@ -38,7 +39,7 @@ export default async function HomePage() {
                 <Link href="/login">Войти</Link>
               </Button>
               <Button variant="outline" asChild>
-                <a href={composer.settings.mail.signupUrl} target="_blank" rel="noreferrer">
+                <a href={status.mail.signupUrl} target="_blank" rel="noreferrer">
                   Завести почту
                 </a>
               </Button>
@@ -85,10 +86,10 @@ export default async function HomePage() {
             <CardDescription>Сборка из простых Kafka, не внутри веб-приложения</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>Статус: {rsa.status === "READY" ? "готовы" : "ожидают простые из Kafka"}</p>
-            <p>Длина модуля: {rsa.modulusBitLength || modulusBitLength} бит</p>
+            <p>Статус: {status.rsa.status === "READY" ? "готовы" : "ожидают простые из Kafka"}</p>
+            <p>Длина модуля: {status.rsa.modulusBitLength} бит</p>
             <p>
-              Накоплено {collectedPrimeCount} простых по {expectedPrimeBitLength} бит (нужны минимум два
+              Накоплено {status.kafka.collectedPrimeCount} простых по {status.kafka.expectedPrimeBitLength} бит (нужны минимум два
               подходящих).
             </p>
             <p>Пока ключи не готовы, доступен «Кузнечик».</p>

@@ -237,6 +237,8 @@ services:
       KAFKA_TOPIC: prime-numbers
       KAFKA_CLIENT_ID: is-webapp
       KAFKA_GROUP_ID: is-webapp-rsa-key-assembler
+      MAIL_DOMAIN: ${MAIL_DOMAIN:-information-security.org}
+      MAIL_PUBLIC_ORIGIN: ${MAIL_PUBLIC_ORIGIN:-http://localhost:8025}
     volumes:
       - ./config:/app/config:ro
     networks:

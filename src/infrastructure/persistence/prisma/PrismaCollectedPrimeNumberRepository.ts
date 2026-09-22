@@ -1,15 +1,26 @@
-import { createHash } from "node:crypto";
+import { Streebog512Hasher } from "@/domain/cryptography/gost/Streebog512Hasher";
 import type {
   CollectedPrimeNumber,
-  CollectedPrimeNumberRepository,
-} from "@/domain/cryptography/primes/CollectedPrimeNumberRepository";
+  ICollectedPrimeNumberRepository,
+} from "@/domain/cryptography/primes/ICollectedPrimeNumberRepository";
 import { getPrismaClient } from "@/infrastructure/persistence/prisma/PrismaClientSingleton";
 
+const streebog = new Streebog512Hasher();
+
 function hashDecimalValue(decimalValue: string): string {
-  return createHash("sha256").update(decimalValue, "utf8").digest("hex");
+  return streebog.hashUtf8ToHex(decimalValue);
 }
 
-export class PrismaCollectedPrimeNumberRepository implements CollectedPrimeNumberRepository {
+/**
+ * Реализация ICollectedPrimeNumberRepository на Prisma.
+ */
+export class PrismaCollectedPrimeNumberRepository implements ICollectedPrimeNumberRepository {
+  /**
+   * Добавляет простое число, если хэш десятичной записи ещё не сохранён.
+   * @param decimalValue Десятичная запись простого.
+   * @param bitLength Длина в битах.
+   * @returns Ничего.
+   */
   public async addIfAbsent(decimalValue: string, bitLength: number): Promise<void> {
     const valueHash = hashDecimalValue(decimalValue);
     await getPrismaClient().collectedRsaPrime.upsert({
@@ -19,6 +30,11 @@ export class PrismaCollectedPrimeNumberRepository implements CollectedPrimeNumbe
     });
   }
 
+  /**
+   * Возвращает простые заданной битовой длины по возрастанию createdAt.
+   * @param bitLength Длина в битах.
+   * @returns Собранные простые.
+   */
   public async listByBitLength(bitLength: number): Promise<CollectedPrimeNumber[]> {
     const records = await getPrismaClient().collectedRsaPrime.findMany({
       where: { bitLength },
@@ -30,6 +46,11 @@ export class PrismaCollectedPrimeNumberRepository implements CollectedPrimeNumbe
     }));
   }
 
+  /**
+   * Считает простые заданной битовой длины.
+   * @param bitLength Длина в битах.
+   * @returns Число записей.
+   */
   public async countByBitLength(bitLength: number): Promise<number> {
     return getPrismaClient().collectedRsaPrime.count({ where: { bitLength } });
   }

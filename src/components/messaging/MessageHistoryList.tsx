@@ -1,22 +1,15 @@
 "use client";
 
-import type { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import type { EncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
+import type { EncryptedMessageDto } from "@/ui/api/messagesApi";
 import { CopyableBlock } from "@/components/messaging/CopyableBlock";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export type HistoryMessage = {
-  id: string;
-  userLogin: string;
-  method: EncryptionMethod;
-  plaintext: string;
-  ciphertextHex: string;
-  keyMaterial: EncryptionKeyMaterial | null;
-  createdAt: string;
-};
+/** Запись журнала зашифрованного сообщения. */
+export type HistoryMessage = EncryptedMessageDto;
 
 type MessageHistoryListProps = {
   messages: HistoryMessage[];
@@ -29,6 +22,17 @@ type MessageHistoryListProps = {
   onDownloadPdf: (messageId: string) => void;
 };
 
+/**
+ * Список записей журнала: исходник, шифртекст, ключи, проверка расшифровки и скачивание PDF.
+ * @param props.messages Записи журнала.
+ * @param props.showUser Показывать логин автора записи.
+ * @param props.cryptoBusy Блокировка кнопок на время криптооперации.
+ * @param props.decryptingId Идентификатор записи, которую расшифровывают.
+ * @param props.pdfId Идентификатор записи, для которой формируется PDF.
+ * @param props.decryptedById Расшифрованный текст по идентификатору записи.
+ * @param props.onDecrypt Запрос расшифрования записи.
+ * @param props.onDownloadPdf Запрос подписанного PDF.
+ */
 export function MessageHistoryList({
   messages,
   showUser = false,
@@ -102,6 +106,10 @@ export function MessageHistoryList({
   );
 }
 
+/**
+ * Блоки ключевого материала записи: PEM для RSA либо ключ и IV «Кузнечика».
+ * @param props.keyMaterial Ключи записи либо `null`, если они недоступны.
+ */
 function KeyMaterialBlocks({ keyMaterial }: { keyMaterial: EncryptionKeyMaterial | null }) {
   if (!keyMaterial) {
     return <p className="text-sm text-muted-foreground">Ключи для этой записи недоступны.</p>;

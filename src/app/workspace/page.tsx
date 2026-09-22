@@ -1,36 +1,28 @@
-import { redirect } from "next/navigation";
 import { WorkspaceClient } from "@/components/workspace/WorkspaceClient";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { toHistoryMessage } from "@/domain/messaging/EncryptedMessageRecord";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { authorizePage } from "@/infrastructure/http/AuthenticationMiddleware";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Рабочий стол авторизованного пользователя: шифрование и свой журнал сообщений.
+ */
 export default async function WorkspacePage() {
-  await initializeApplication();
-  const actor = await resolveSessionUser(await readSessionToken());
-  if (!actor) {
-    redirect("/login");
-  }
-
-  const composer = getApplicationComposer();
-  const methods = await composer.encryptionMethodCatalog.list();
-  const messages = await composer.listMessagesUseCase.execute(actor);
-  const rsa = await composer.systemRsaKeyStore.getStatus();
+  const actor = await authorizePage();
+  const { administration, messages, system } = await getReadyServices();
+  const [methods, messageList, status] = await Promise.all([
+    administration.getAllEncryptionMethods(),
+    messages.getEncryptedMessages(actor),
+    system.getSystemStatus(),
+  ]);
 
   return (
     <WorkspaceClient
       actorLogin={actor.login}
       methods={methods}
-      messages={messages.map((message) => ({
-        id: message.id,
-        userLogin: message.userLogin,
-        method: message.method,
-        plaintext: message.plaintext,
-        ciphertextHex: message.ciphertextHex,
-        keyMaterial: message.keyMaterial,
-        createdAt: message.createdAt.toISOString(),
-      }))}
-      rsaReady={rsa.status === "READY"}
+      messages={messageList.map(toHistoryMessage)}
+      rsaReady={status.rsa.status === "READY"}
     />
   );
 }

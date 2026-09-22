@@ -1,11 +1,23 @@
 import type { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import type { EncryptedMessageRecord } from "@/domain/messaging/EncryptedMessageRecord";
-import type { EncryptedMessageRepository } from "@/domain/messaging/EncryptedMessageRepository";
+import type { IEncryptedMessageRepository } from "@/domain/messaging/IEncryptedMessageRepository";
 import type { EncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
 import { parseEncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
 import { getPrismaClient } from "@/infrastructure/persistence/prisma/PrismaClientSingleton";
 
-export class PrismaEncryptedMessageRepository implements EncryptedMessageRepository {
+/**
+ * Реализация IEncryptedMessageRepository на Prisma.
+ */
+export class PrismaEncryptedMessageRepository implements IEncryptedMessageRepository {
+  /**
+   * Сохраняет зашифрованное сообщение и связанный ключевой материал.
+   * @param userId Идентификатор автора.
+   * @param method Метод шифрования.
+   * @param plaintext Открытый текст.
+   * @param ciphertextHex Шифртекст в hex.
+   * @param keyMaterial Ключевой материал.
+   * @returns Созданная запись с логином автора.
+   */
   public async insert(
     userId: string,
     method: EncryptionMethod,
@@ -26,6 +38,11 @@ export class PrismaEncryptedMessageRepository implements EncryptedMessageReposit
     return this.map(record);
   }
 
+  /**
+   * Возвращает сообщения пользователя по убыванию createdAt.
+   * @param userId Идентификатор автора.
+   * @returns Список записей.
+   */
   public async listByUser(userId: string): Promise<EncryptedMessageRecord[]> {
     const records = await getPrismaClient().encryptedMessage.findMany({
       where: { userId },
@@ -35,6 +52,10 @@ export class PrismaEncryptedMessageRepository implements EncryptedMessageReposit
     return records.map((record) => this.map(record));
   }
 
+  /**
+   * Возвращает все сообщения по убыванию createdAt.
+   * @returns Список записей.
+   */
   public async listAll(): Promise<EncryptedMessageRecord[]> {
     const records = await getPrismaClient().encryptedMessage.findMany({
       include: { user: true },
@@ -43,6 +64,11 @@ export class PrismaEncryptedMessageRepository implements EncryptedMessageReposit
     return records.map((record) => this.map(record));
   }
 
+  /**
+   * Ищет сообщение по идентификатору.
+   * @param messageId Идентификатор сообщения.
+   * @returns Запись или null.
+   */
   public async findById(messageId: string): Promise<EncryptedMessageRecord | null> {
     const record = await getPrismaClient().encryptedMessage.findUnique({
       where: { id: messageId },
@@ -51,6 +77,7 @@ export class PrismaEncryptedMessageRepository implements EncryptedMessageReposit
     return record ? this.map(record) : null;
   }
 
+  /** Преобразует строку Prisma в EncryptedMessageRecord. */
   private map(record: {
     id: string;
     userId: string;

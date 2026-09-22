@@ -1,24 +1,17 @@
-import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer } from "@/infrastructure/composition/ApplicationComposer";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { RegisterUserRequest } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const body = (await request.json()) as {
-    login?: string;
-    email?: string;
-    password?: string;
-    passwordConfirmation?: string;
-  };
-
-  try {
-    const result = await getApplicationComposer().registerUserUseCase.execute({
-      login: body.login ?? "",
-      email: body.email ?? "",
-      password: body.password ?? "",
-      passwordConfirmation: body.passwordConfirmation ?? "",
-    });
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка регистрации" }, { status: 400 });
-  }
-}
+/**
+ * POST: регистрирует учётную запись и возвращает данные привязки TOTP.
+ */
+export const POST = endpoint(
+  jsonBody(RegisterUserRequest),
+  catchErrors(400, "Ошибка регистрации"),
+  async ({ body }) => {
+    const { registration } = await getReadyServices();
+    return jsonFromResult(await registration.registerUser(body), 400);
+  },
+);

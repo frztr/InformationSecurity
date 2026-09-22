@@ -13,6 +13,11 @@ const ROUND_COUNT = 12;
  * Байты хранятся в порядке RFC: индекс 0 — старший байт 512-битного вектора.
  */
 export class Streebog512Hasher {
+  /**
+   * Хэширует произвольные байты по ГОСТ Р 34.11-2012 (Стрибог-512).
+   * @param message Входное сообщение.
+   * @returns 64-байтный дайджест в порядке RFC (индекс 0 — старший байт).
+   */
   public hashBytes(message: Uint8Array): Uint8Array {
     let chainingValue: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
     let bitLengthCounter: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
@@ -45,20 +50,52 @@ export class Streebog512Hasher {
     return chainingValue;
   }
 
+  /**
+   * Хэширует UTF-8 представление строки.
+   * @param text Исходный текст.
+   * @returns 64-байтный дайджест.
+   */
   public hashUtf8(text: string): Uint8Array {
     return this.hashBytes(new TextEncoder().encode(text));
   }
 
+  /**
+   * Хэширует UTF-8 представление строки и возвращает шестнадцатеричную запись.
+   * @param text Исходный текст.
+   * @returns 128 символов hex-дайджеста.
+   */
+  public hashUtf8ToHex(text: string): string {
+    return this.hashToHex(new TextEncoder().encode(text));
+  }
+
+  /**
+   * Хэширует байты и возвращает шестнадцатеричную запись дайджеста.
+   * @param message Входное сообщение.
+   * @returns 128 символов hex-дайджеста.
+   */
   public hashToHex(message: Uint8Array): string {
     return Array.from(this.hashBytes(message), (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
 
+  /**
+   * Функция сжатия g_N(h, m) стандарта.
+   * @param chainingValue Текущее значение хэширования h.
+   * @param messageBlock Блок сообщения m.
+   * @param lengthVector Вектор N (накопленная длина в битах).
+   * @returns Новое значение хэширования.
+   */
   private compress(chainingValue: Uint8Array, messageBlock: Uint8Array, lengthVector: Uint8Array): Uint8Array {
     const key = this.applyLps(this.exclusiveOr(chainingValue, lengthVector));
     const encrypted = this.encrypt(key, messageBlock);
     return this.exclusiveOr(this.exclusiveOr(encrypted, chainingValue), messageBlock);
   }
 
+  /**
+   * Преобразование E_K(m): 12 раундов LPS с раундовыми константами.
+   * @param initialKey Начальный ключ K.
+   * @param messageBlock Блок сообщения.
+   * @returns Зашифрованный блок.
+   */
   private encrypt(initialKey: Uint8Array, messageBlock: Uint8Array): Uint8Array {
     let key: Uint8Array<ArrayBufferLike> = new Uint8Array(initialKey);
     let state: Uint8Array<ArrayBufferLike> = this.exclusiveOr(messageBlock, key);
@@ -71,10 +108,19 @@ export class Streebog512Hasher {
     return state;
   }
 
+  /**
+   * Композиция LPS: подстановка π, перестановка τ и линейное преобразование L.
+   * @param block 64-байтный блок.
+   * @returns Преобразованный блок.
+   */
   private applyLps(block: Uint8Array): Uint8Array {
     return this.applyLinear(this.applyPermutation(this.applySubstitution(block)));
   }
 
+  /**
+   * Применяет нелинейную подстановку π к 64-байтному блоку Стрибог.
+   * @param block Входной блок.
+   */
   private applySubstitution(block: Uint8Array): Uint8Array {
     const substituted = new Uint8Array(BLOCK_SIZE_BYTES);
     for (let index = 0; index < BLOCK_SIZE_BYTES; index += 1) {
@@ -83,6 +129,10 @@ export class Streebog512Hasher {
     return substituted;
   }
 
+  /**
+   * Применяет байтовую перестановку τ.
+   * @param block Входной блок.
+   */
   private applyPermutation(block: Uint8Array): Uint8Array {
     const permuted = new Uint8Array(BLOCK_SIZE_BYTES);
     for (let outputIndex = 0; outputIndex < BLOCK_SIZE_BYTES; outputIndex += 1) {
@@ -93,6 +143,10 @@ export class Streebog512Hasher {
     return permuted;
   }
 
+  /**
+   * Применяет линейное преобразование L к восьми 64-битным словам блока.
+   * @param block 64-байтный блок.
+   */
   private applyLinear(block: Uint8Array): Uint8Array {
     const transformed = new Uint8Array(BLOCK_SIZE_BYTES);
     for (let wordIndex = 0; wordIndex < 8; wordIndex += 1) {
@@ -102,6 +156,10 @@ export class Streebog512Hasher {
     return transformed;
   }
 
+  /**
+   * Линейное преобразование одного 64-битного слова матрицей стандарта.
+   * @param word Восемь байт слова.
+   */
   private applyLinear64(word: Uint8Array): Uint8Array {
     let result = 0n;
     let matrixRowIndex = 0;
@@ -122,6 +180,11 @@ export class Streebog512Hasher {
     return resultBytes;
   }
 
+  /**
+   * Покомпонентное сложение двух блоков по модулю 2.
+   * @param left Левый операнд.
+   * @param right Правый операнд.
+   */
   private exclusiveOr(left: Uint8Array, right: Uint8Array): Uint8Array {
     const result = new Uint8Array(left.length);
     for (let index = 0; index < left.length; index += 1) {
@@ -130,6 +193,10 @@ export class Streebog512Hasher {
     return result;
   }
 
+  /**
+   * Читает байты как целое big-endian.
+   * @param bytes Исходные байты.
+   */
   private bytesToInteger(bytes: Uint8Array): bigint {
     let value = 0n;
     for (const byte of bytes) {
@@ -138,6 +205,11 @@ export class Streebog512Hasher {
     return value;
   }
 
+  /**
+   * Складывает 512-битный вектор с целым по модулю 2⁵¹².
+   * @param left 64-байтный вектор.
+   * @param right Слагаемое.
+   */
   private addInteger(left: Uint8Array, right: bigint): Uint8Array {
     const modulus = 1n << 512n;
     const sum = (this.bytesToInteger(left) + (right % modulus)) % modulus;

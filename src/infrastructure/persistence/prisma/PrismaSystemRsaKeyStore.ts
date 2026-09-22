@@ -1,8 +1,15 @@
 import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
-import type { RsaKeyStatus, SystemRsaKeyStore } from "@/domain/cryptography/rsa/SystemRsaKeyStore";
+import type { RsaKeyStatus, ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
 import { getPrismaClient } from "@/infrastructure/persistence/prisma/PrismaClientSingleton";
 
-export class PrismaSystemRsaKeyStore implements SystemRsaKeyStore {
+/**
+ * Реализация ISystemRsaKeyStore на Prisma (запись id = "system").
+ */
+export class PrismaSystemRsaKeyStore implements ISystemRsaKeyStore {
+  /**
+   * Возвращает статус системного ключа. При отсутствии записи — GENERATING и длина модуля 0.
+   * @returns Статус и битовая длина модуля.
+   */
   public async getStatus(): Promise<{ status: RsaKeyStatus; modulusBitLength: number }> {
     const record = await getPrismaClient().systemRsaKey.findUnique({ where: { id: "system" } });
     if (!record) {
@@ -11,6 +18,10 @@ export class PrismaSystemRsaKeyStore implements SystemRsaKeyStore {
     return { status: record.status, modulusBitLength: record.modulusBitLength };
   }
 
+  /**
+   * Возвращает пару RSA, если статус READY и все hex-поля заполнены.
+   * @returns Пара ключей или null.
+   */
   public async tryGetKeyPair(): Promise<RsaKeyPair | null> {
     const record = await getPrismaClient().systemRsaKey.findUnique({ where: { id: "system" } });
     if (
@@ -42,6 +53,11 @@ export class PrismaSystemRsaKeyStore implements SystemRsaKeyStore {
     };
   }
 
+  /**
+   * Помечает системный ключ как генерируемый (upsert записи "system").
+   * @param modulusBitLength Целевая длина модуля.
+   * @returns Ничего.
+   */
   public async markGenerating(modulusBitLength: number): Promise<void> {
     await getPrismaClient().systemRsaKey.upsert({
       where: { id: "system" },
@@ -50,6 +66,11 @@ export class PrismaSystemRsaKeyStore implements SystemRsaKeyStore {
     });
   }
 
+  /**
+   * Сохраняет готовую пару RSA и ставит статус READY.
+   * @param keyPair Пара ключей.
+   * @returns Ничего.
+   */
   public async saveKeyPair(keyPair: RsaKeyPair): Promise<void> {
     await getPrismaClient().systemRsaKey.upsert({
       where: { id: "system" },

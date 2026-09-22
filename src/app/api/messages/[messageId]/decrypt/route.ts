@@ -1,24 +1,21 @@
-import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { authenticate } from "@/infrastructure/http/AuthenticationMiddleware";
+import { MessageIdRouteParams } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { routeParams } from "@/infrastructure/http/RequestContractMiddleware";
 
 export const maxDuration = 120;
 
-export async function POST(
-  _request: Request,
-  context: { params: Promise<{ messageId: string }> },
-): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user) {
-    return NextResponse.json({ error: "Нужна аутентификация" }, { status: 401 });
-  }
-
-  const { messageId } = await context.params;
-  try {
-    const result = await getApplicationComposer().decryptMessageUseCase.execute(user, messageId);
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка расшифрования" }, { status: 400 });
-  }
-}
+/**
+ * POST: расшифровывает запись журнала по идентификатору. Требует аутентификацию.
+ */
+export const POST = endpoint(
+  authenticate,
+  routeParams(MessageIdRouteParams),
+  catchErrors(400, "Ошибка расшифрования"),
+  async ({ user, routeParams: params }) => {
+    const { messages } = await getReadyServices();
+    return jsonFromResult(await messages.decryptMessage(user, params.messageId), 400);
+  },
+);

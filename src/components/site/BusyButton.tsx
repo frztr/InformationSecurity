@@ -9,6 +9,11 @@ type BusyButtonProps = ComponentProps<typeof Button> & {
   busyLabel?: string;
 };
 
+/**
+ * Кнопка с блокировкой и спиннером на время выполнения действия.
+ * @param props.busy Признак занятости.
+ * @param props.busyLabel Подпись вместо `children` во время занятости.
+ */
 export function BusyButton({ busy = false, busyLabel, children, disabled, ...props }: BusyButtonProps) {
   return (
     <Button disabled={disabled || busy} aria-busy={busy} {...props}>

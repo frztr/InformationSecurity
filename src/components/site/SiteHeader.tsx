@@ -1,47 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { logoutSession } from "@/ui/api/authApi";
+import { useBusyAction } from "@/ui/http/useBusyAction";
+import { useSystemStatus } from "@/ui/useSystemStatus";
 
-type Actor =
-  | { role: "GUEST" }
-  | { role: "USER" | "ADMIN"; login: string };
-
-const MAIL_FALLBACK = {
-  webmailUrl: "http://localhost:8025/webmail",
-};
-
+/**
+ * Шапка сайта: навигация по ролям, ссылка на веб-почту и выход из сессии.
+ */
 export function SiteHeader() {
-  const [actor, setActor] = useState<Actor>({ role: "GUEST" });
-  const [webmailUrl, setWebmailUrl] = useState(MAIL_FALLBACK.webmailUrl);
-  const [ready, setReady] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    void fetch("/api/system/status")
-      .then((response) => response.json())
-      .then((payload: { actor?: Actor; mail?: { webmailUrl?: string } }) => {
-        if (payload.actor) {
-          setActor(payload.actor);
-        }
-        if (payload.mail?.webmailUrl) {
-          setWebmailUrl(payload.mail.webmailUrl);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => setReady(true));
-  }, []);
+  const { ready, actor, mail } = useSystemStatus();
+  const loggingOut = useBusyAction();
 
   async function logout(): Promise<void> {
-    setLoggingOut(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
+    const result = await loggingOut.run(() => logoutSession());
+    if (result.ok) {
       window.location.href = "/";
-    } catch {
-      setLoggingOut(false);
     }
   }
 
@@ -60,11 +37,13 @@ export function SiteHeader() {
             </>
           ) : actor.role === "GUEST" ? (
             <>
-              <Button variant="ghost" size="sm" asChild>
-                <a href={webmailUrl} target="_blank" rel="noreferrer">
-                  Почта
-                </a>
-              </Button>
+              {mail.webmailUrl ? (
+                <Button variant="ghost" size="sm" asChild>
+                  <a href={mail.webmailUrl} target="_blank" rel="noreferrer">
+                    Почта
+                  </a>
+                </Button>
+              ) : null}
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/login">Вход</Link>
               </Button>
@@ -74,11 +53,13 @@ export function SiteHeader() {
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild>
-                <a href={webmailUrl} target="_blank" rel="noreferrer">
-                  Почта
-                </a>
-              </Button>
+              {mail.webmailUrl ? (
+                <Button variant="ghost" size="sm" asChild>
+                  <a href={mail.webmailUrl} target="_blank" rel="noreferrer">
+                    Почта
+                  </a>
+                </Button>
+              ) : null}
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/workspace">Рабочий стол</Link>
               </Button>
@@ -88,7 +69,7 @@ export function SiteHeader() {
                 </Button>
               ) : null}
               <span className="px-2 text-sm text-muted-foreground">{actor.login}</span>
-              <BusyButton variant="outline" size="sm" busy={loggingOut} busyLabel="Выход…" onClick={() => void logout()}>
+              <BusyButton variant="outline" size="sm" busy={loggingOut.pending} busyLabel="Выход…" onClick={() => void logout()}>
                 Выйти
               </BusyButton>
             </>

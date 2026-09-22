@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer } from "@/infrastructure/composition/ApplicationComposer";
-import { SESSION_COOKIE_NAME, readSessionToken } from "@/infrastructure/http/AuthCookies";
-import { hashOpaqueSecret } from "@/infrastructure/identity/SecretDigest";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { clearSessionCookie, readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
 
-export async function POST(): Promise<Response> {
-  await initializeApplication();
-  const token = await readSessionToken();
-  if (token) {
-    await getApplicationComposer().sessionRepository.deleteByTokenHash(hashOpaqueSecret(token));
-  }
+/**
+ * POST: завершает сессию и снимает cookie сессии.
+ */
+export const POST = endpoint(async () => {
+  const { authentication } = await getReadyServices();
+  await authentication.logout(await readSessionToken());
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE_NAME, "", { httpOnly: true, path: "/", maxAge: 0 });
+  clearSessionCookie(response);
   return response;
-}
+});

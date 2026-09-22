@@ -2,11 +2,11 @@
 
 import { Loader2Icon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import type { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import type { UserRole } from "@/domain/identity/UserRole";
 import type { HistoryMessage } from "@/components/messaging/MessageHistoryList";
 import { MessageHistoryList } from "@/components/messaging/MessageHistoryList";
+import { useMessageHistoryActions } from "@/components/messaging/useMessageHistoryActions";
 import { BusyButton } from "@/components/site/BusyButton";
 import { cryptoWaitMessage, OperationStatus } from "@/components/site/OperationStatus";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { createUserAccount, setEncryptionMethodEnabled } from "@/ui/api/adminApi";
+import { runBusyAction } from "@/ui/http/runUiAction";
+import { useBusyAction } from "@/ui/http/useBusyAction";
 
 type AdminClientProps = {
   methods: Array<{ method: EncryptionMethod; enabled: boolean }>;
@@ -22,6 +25,12 @@ type AdminClientProps = {
   messages: HistoryMessage[];
 };
 
+/**
+ * Панель администратора: методы шифрования, создание учётных записей, список пользователей и общий журнал.
+ * @param props.methods Методы шифрования и их текущая доступность.
+ * @param props.users Список учётных записей.
+ * @param props.messages Журнал сообщений всех пользователей.
+ */
 export function AdminClient({ methods, users, messages }: AdminClientProps) {
   const [methodStates, setMethodStates] = useState(methods);
   const [login, setLogin] = useState("");
@@ -29,104 +38,30 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("USER");
   const [createdSecrets, setCreatedSecrets] = useState<string[] | null>(null);
-  const [creatingUser, setCreatingUser] = useState(false);
   const [togglingMethod, setTogglingMethod] = useState<EncryptionMethod | null>(null);
-  const [decryptingId, setDecryptingId] = useState<string | null>(null);
-  const [pdfId, setPdfId] = useState<string | null>(null);
-  const [decryptedById, setDecryptedById] = useState<Record<string, string>>({});
-  const cryptoBusy = decryptingId !== null || pdfId !== null;
-  const decryptingMessage = messages.find((item) => item.id === decryptingId);
-  const pdfMessage = messages.find((item) => item.id === pdfId);
+  const creatingUser = useBusyAction();
+  const historyActions = useMessageHistoryActions(messages);
+  const decryptingMessage = messages.find((item) => item.id === historyActions.decryptingId);
+  const pdfMessage = messages.find((item) => item.id === historyActions.pdfId);
 
   async function toggleMethod(method: EncryptionMethod, enabled: boolean): Promise<void> {
-    setTogglingMethod(method);
-    try {
-      const response = await fetch("/api/admin/methods", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method, enabled }),
-      });
-      if (!response.ok) {
-        toast.error("Не удалось изменить метод");
-        return;
-      }
+    const result = await runBusyAction(
+      (busy) => setTogglingMethod(busy ? method : null),
+      () => setEncryptionMethodEnabled(method, enabled),
+    );
+    if (result.ok) {
       setMethodStates((current) => current.map((item) => (item.method === method ? { ...item, enabled } : item)));
-    } catch {
-      toast.error("Не удалось изменить метод");
-    } finally {
-      setTogglingMethod(null);
     }
   }
 
   async function createUser(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setCreatingUser(true);
-    try {
-      const response = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          login,
-          email,
-          password,
-          passwordConfirmation: password,
-          role,
-        }),
-      });
-      const payload = (await response.json()) as { error?: string; recoveryCodes?: string[] };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Ошибка");
-        return;
-      }
-      setCreatedSecrets(payload.recoveryCodes ?? []);
-      toast.success("Пользователь создан");
-    } catch {
-      toast.error("Ошибка");
-    } finally {
-      setCreatingUser(false);
-    }
-  }
-
-  async function decrypt(messageId: string): Promise<void> {
-    setDecryptingId(messageId);
-    try {
-      const response = await fetch(`/api/messages/${messageId}/decrypt`, { method: "POST" });
-      const payload = (await response.json()) as { error?: string; plaintext?: string };
-      if (!response.ok || payload.plaintext === undefined) {
-        toast.error(payload.error ?? "Не удалось расшифровать");
-        return;
-      }
-      setDecryptedById((current) => ({ ...current, [messageId]: payload.plaintext as string }));
-      const stored = messages.find((item) => item.id === messageId)?.plaintext;
-      toast.success(
-        stored === payload.plaintext ? "Расшифровка совпала с исходником" : "Расшифровка не совпала с исходником в журнале",
-      );
-    } catch {
-      toast.error("Не удалось расшифровать");
-    } finally {
-      setDecryptingId(null);
-    }
-  }
-
-  async function downloadPdf(messageId: string): Promise<void> {
-    setPdfId(messageId);
-    try {
-      const response = await fetch(`/api/messages/${messageId}/pdf`);
-      if (!response.ok) {
-        toast.error("PDF недоступен, пока не готовы ключи RSA");
-        return;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `message-${messageId}.pdf`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("PDF недоступен, пока не готовы ключи RSA");
-    } finally {
-      setPdfId(null);
+    const result = await creatingUser.run(
+      () => createUserAccount({ login, email, password, role }),
+      { success: "Пользователь создан" },
+    );
+    if (result.ok) {
+      setCreatedSecrets(result.data.recoveryCodes);
     }
   }
 
@@ -165,7 +100,7 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
           ))}
         </CardContent>
       </Card>
-      <Card aria-busy={creatingUser}>
+      <Card aria-busy={creatingUser.pending}>
         <CardHeader>
           <CardTitle>Создать пользователя</CardTitle>
         </CardHeader>
@@ -173,7 +108,7 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
           <form className="grid gap-3 md:grid-cols-2" onSubmit={(event) => void createUser(event)}>
             <div className="space-y-2">
               <Label htmlFor="login">Логин</Label>
-              <Input id="login" value={login} onChange={(event) => setLogin(event.target.value)} required disabled={creatingUser} />
+              <Input id="login" value={login} onChange={(event) => setLogin(event.target.value)} required disabled={creatingUser.pending} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Почта</Label>
@@ -183,7 +118,7 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                disabled={creatingUser}
+                disabled={creatingUser.pending}
               />
             </div>
             <div className="space-y-2">
@@ -194,12 +129,12 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                disabled={creatingUser}
+                disabled={creatingUser.pending}
               />
             </div>
             <div className="space-y-2">
               <Label>Роль</Label>
-              <Select value={role} onValueChange={(value) => setRole(value as UserRole)} disabled={creatingUser}>
+              <Select value={role} onValueChange={(value) => setRole(value as UserRole)} disabled={creatingUser.pending}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -210,7 +145,7 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
               </Select>
             </div>
             <div className="md:col-span-2">
-              <BusyButton type="submit" busy={creatingUser} busyLabel="Создание…">
+              <BusyButton type="submit" busy={creatingUser.pending} busyLabel="Создание…">
                 Создать
               </BusyButton>
             </div>
@@ -245,7 +180,7 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
           </Table>
         </CardContent>
       </Card>
-      <Card aria-busy={cryptoBusy}>
+      <Card aria-busy={historyActions.cryptoBusy}>
         <CardHeader>
           <CardTitle>Журнал сообщений</CardTitle>
           <CardDescription>Исходник, шифртекст и ключи — чтобы можно было перепроверить шифрование.</CardDescription>
@@ -258,12 +193,12 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
           <MessageHistoryList
             messages={messages}
             showUser
-            cryptoBusy={cryptoBusy}
-            decryptingId={decryptingId}
-            pdfId={pdfId}
-            decryptedById={decryptedById}
-            onDecrypt={(messageId) => void decrypt(messageId)}
-            onDownloadPdf={(messageId) => void downloadPdf(messageId)}
+            cryptoBusy={historyActions.cryptoBusy}
+            decryptingId={historyActions.decryptingId}
+            pdfId={historyActions.pdfId}
+            decryptedById={historyActions.decryptedById}
+            onDecrypt={(messageId) => void historyActions.decrypt(messageId)}
+            onDownloadPdf={(messageId) => void historyActions.downloadPdf(messageId)}
           />
         </CardContent>
       </Card>

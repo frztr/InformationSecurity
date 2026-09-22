@@ -1,16 +1,17 @@
-import { NextResponse } from "next/server";
 import { UserRole } from "@/domain/identity/UserRole";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { authenticate, authorize } from "@/infrastructure/http/AuthenticationMiddleware";
+import { CreateUserByAdminRequest } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
-export async function GET(): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user || user.role !== UserRole.ADMIN) {
-    return NextResponse.json({ error: "Только администратор" }, { status: 403 });
-  }
-  const users = await getApplicationComposer().userAccountRepository.listAll();
-  return NextResponse.json({
+/**
+ * GET: список всех пользователей. Требует роль администратора.
+ */
+export const GET = endpoint(authenticate, authorize(UserRole.ADMIN), async ({ user }) => {
+  const { administration } = await getReadyServices();
+  return jsonFromResult(await administration.getAllUsers(user), 403, (users) => ({
     users: users.map((item) => ({
       id: item.id,
       login: item.login,
@@ -18,34 +19,19 @@ export async function GET(): Promise<Response> {
       role: item.role,
       createdAt: item.createdAt,
     })),
-  });
-}
+  }));
+});
 
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user || user.role !== UserRole.ADMIN) {
-    return NextResponse.json({ error: "Только администратор" }, { status: 403 });
-  }
-
-  const body = (await request.json()) as {
-    login?: string;
-    email?: string;
-    password?: string;
-    passwordConfirmation?: string;
-    role?: string;
-  };
-
-  try {
-    const result = await getApplicationComposer().createUserByAdminUseCase.execute(user, {
-      login: body.login ?? "",
-      email: body.email ?? "",
-      password: body.password ?? "",
-      passwordConfirmation: body.passwordConfirmation ?? "",
-      role: body.role === UserRole.ADMIN ? UserRole.ADMIN : UserRole.USER,
-    });
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка создания" }, { status: 400 });
-  }
-}
+/**
+ * POST: создаёт учётную запись. Требует роль администратора.
+ */
+export const POST = endpoint(
+  authenticate,
+  authorize(UserRole.ADMIN),
+  jsonBody(CreateUserByAdminRequest),
+  catchErrors(400, "Ошибка создания"),
+  async ({ user, body }) => {
+    const { administration } = await getReadyServices();
+    return jsonFromResult(await administration.createUserAccount(user, body), 400);
+  },
+);

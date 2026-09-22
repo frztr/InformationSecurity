@@ -1,5 +1,10 @@
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+/**
+ * Кодирует байты в Base32 (алфавит RFC 4648 без дополнения `=`).
+ * @param bytes Исходные байты.
+ * @returns Строка Base32.
+ */
 export function encodeBase32(bytes: Uint8Array): string {
   let bitBuffer = 0;
   let bitCount = 0;
@@ -23,6 +28,11 @@ export function encodeBase32(bytes: Uint8Array): string {
   return output;
 }
 
+/**
+ * Декодирует строку Base32.
+ * @param encoded Строка Base32; завершающие `=` игнорируются.
+ * @returns Байты.
+ */
 export function decodeBase32(encoded: string): Uint8Array {
   const normalized = encoded.replace(/=+$/g, "").toUpperCase();
   let bitBuffer = 0;
@@ -45,8 +55,14 @@ export function decodeBase32(encoded: string): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
+/**
+ * Собирает URI `otpauth://totp/...` для привязки приложения-аутентификатора.
+ * @param issuer Издатель (имя системы).
+ * @param accountName Имя учётной записи.
+ * @param secretBase32 Секрет TOTP в Base32.
+ */
 export function buildOtpAuthUrl(issuer: string, accountName: string, secretBase32: string): string {
   const encodedIssuer = encodeURIComponent(issuer);
   const encodedAccount = encodeURIComponent(accountName);
-  return `otpauth://totp/${encodedIssuer}:${encodedAccount}?secret=${secretBase32}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
+  return `otpauth://totp/${encodedIssuer}:${encodedAccount}?secret=${secretBase32}&issuer=${encodedIssuer}&algorithm=STREEBOG512&digits=6&period=30`;
 }

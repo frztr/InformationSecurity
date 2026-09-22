@@ -2,7 +2,7 @@
 set -eu
 
 i=0
-while [ "$i" -lt 60 ]; do
+while [ "$i" -lt 90 ]; do
   if [ -f /data/main.db ]; then
     if flask mailu config-import -u /bootstrap.yml; then
       echo "Mailu bootstrap OK"

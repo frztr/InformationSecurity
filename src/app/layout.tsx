@@ -14,11 +14,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin", "cyrillic"],
 });
 
+/** Заголовок и описание вкладки браузера. */
 export const metadata: Metadata = {
   title: "InformationSecurity",
   description: "MVP системы защиты: RSA-32768, Кузнечик, Стрибог-512, 3FA",
 };
 
+/**
+ * Корневой макет: шрифты, шапка, область страницы и тосты.
+ * @param props.children Содержимое текущего маршрута.
+ */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>

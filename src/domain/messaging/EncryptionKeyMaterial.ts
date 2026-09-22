@@ -3,6 +3,9 @@ import { toHexString } from "@/domain/cryptography/HexEncoding";
 import { encodeRsaPrivateKeyPkcs1Pem, encodeRsaPublicKeySpkiPem } from "@/domain/cryptography/rsa/RsaPemEncoding";
 import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
 
+/**
+ * Материалы ключа RSA, сохранённые вместе с сообщением.
+ */
 export type RsaEncryptionKeyMaterial = {
   method: "RSA";
   modulusBitLength: number;
@@ -15,19 +18,31 @@ export type RsaEncryptionKeyMaterial = {
   privateKeyPem: string;
 };
 
+/**
+ * Материалы ключа «Кузнечик»: ключ и вектор инициализации CBC.
+ */
 export type KuznyechikEncryptionKeyMaterial = {
   method: "KUZNYECHIK";
   keyHex: string;
   ivHex: string;
 };
 
+/** Материалы ключа шифрования сообщения. */
 export type EncryptionKeyMaterial = RsaEncryptionKeyMaterial | KuznyechikEncryptionKeyMaterial;
 
-export function bigintToEvenHex(value: bigint): string {
+/**
+ * Шестнадцатеричная запись целого с чётной длиной.
+ * @param value Неотрицательное целое.
+ */
+function bigintToEvenHex(value: bigint): string {
   const hex = value.toString(16);
   return hex.length % 2 === 0 ? hex : `0${hex}`;
 }
 
+/**
+ * Собирает материалы ключа из системной пары RSA.
+ * @param keyPair Пара ключей.
+ */
 export function rsaEncryptionKeyMaterial(keyPair: RsaKeyPair): RsaEncryptionKeyMaterial {
   return completeRsaKeyMaterial({
     method: EncryptionMethod.RSA,
@@ -42,7 +57,11 @@ export function rsaEncryptionKeyMaterial(keyPair: RsaKeyPair): RsaEncryptionKeyM
   });
 }
 
-export function completeRsaKeyMaterial(material: RsaEncryptionKeyMaterial): RsaEncryptionKeyMaterial {
+/**
+ * Дописывает PEM, если в материалах заданы только числовые поля.
+ * @param material Частично заполненные материалы RSA.
+ */
+function completeRsaKeyMaterial(material: RsaEncryptionKeyMaterial): RsaEncryptionKeyMaterial {
   const modulus = BigInt(`0x${material.modulusHex}`);
   const publicExponent = BigInt(material.publicExponent);
   const privateExponent = BigInt(`0x${material.privateExponentHex}`);
@@ -55,6 +74,11 @@ export function completeRsaKeyMaterial(material: RsaEncryptionKeyMaterial): RsaE
   };
 }
 
+/**
+ * Собирает материалы ключа «Кузнечик».
+ * @param key 256-битный ключ.
+ * @param initializationVector 128-битный IV.
+ */
 export function kuznyechikEncryptionKeyMaterial(key: Uint8Array, initializationVector: Uint8Array): KuznyechikEncryptionKeyMaterial {
   return {
     method: EncryptionMethod.KUZNYECHIK,
@@ -63,7 +87,11 @@ export function kuznyechikEncryptionKeyMaterial(key: Uint8Array, initializationV
   };
 }
 
-export function kuznyechikIvFromCiphertextHex(ciphertextHex: string): Uint8Array {
+/**
+ * Извлекает IV из начала шифртекста «Кузнечик» (первые 16 байт в hex).
+ * @param ciphertextHex Шифртекст в шестнадцатеричном виде.
+ */
+function kuznyechikIvFromCiphertextHex(ciphertextHex: string): Uint8Array {
   const compactHex = ciphertextHex.replace(/\s+/g, "");
   const ivHex = compactHex.slice(0, 32);
   if (ivHex.length !== 32) {
@@ -76,6 +104,13 @@ export function kuznyechikIvFromCiphertextHex(ciphertextHex: string): Uint8Array
   return bytes;
 }
 
+/**
+ * Восстанавливает материалы ключа для старых записей без сохранённого JSON.
+ * @param method Метод шифрования сообщения.
+ * @param ciphertextHex Шифртекст (для IV «Кузнечика»).
+ * @param rsaKeyPair Текущая системная пара RSA или `null`.
+ * @param kuznyechikMasterKey Системный ключ «Кузнечик».
+ */
 export function fallbackKeyMaterialForMessage(
   method: EncryptionMethodName,
   ciphertextHex: string,
@@ -88,6 +123,11 @@ export function fallbackKeyMaterialForMessage(
   return kuznyechikEncryptionKeyMaterial(kuznyechikMasterKey, kuznyechikIvFromCiphertextHex(ciphertextHex));
 }
 
+/**
+ * Разбирает JSON материалов ключа из хранилища.
+ * @param raw Строка JSON или пустое значение.
+ * @returns Материалы или `null` при отсутствии/повреждении.
+ */
 export function parseEncryptionKeyMaterial(raw: string | null | undefined): EncryptionKeyMaterial | null {
   if (!raw) {
     return null;

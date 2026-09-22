@@ -1,31 +1,21 @@
 import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { getCurrentUser } from "@/infrastructure/http/AuthenticationMiddleware";
 
+/**
+ * GET: статус системы, методы шифрования и текущий актор (гость или вошедший пользователь).
+ */
 export async function GET(): Promise<Response> {
-  await initializeApplication();
-  const composer = getApplicationComposer();
-  const rsa = await composer.systemRsaKeyStore.getStatus();
-  const methods = await composer.encryptionMethodCatalog.list();
-  const user = await resolveSessionUser(await readSessionToken());
-  const modulusBitLength = Number(process.env.RSA_MODULUS_BIT_LENGTH ?? composer.settings.rsa.modulusBitLength);
-  const expectedPrimeBitLength = modulusBitLength / 2;
-  const collectedPrimeCount = await composer.collectedPrimeNumberRepository.countByBitLength(expectedPrimeBitLength);
+  const { administration, system } = await getReadyServices();
+  const [status, methods, user] = await Promise.all([
+    system.getSystemStatus(),
+    administration.getAllEncryptionMethods(),
+    getCurrentUser(),
+  ]);
 
   return NextResponse.json({
-    rsa,
-    kafka: {
-      brokers: composer.settings.kafka.brokers,
-      topic: composer.settings.kafka.topic,
-      expectedPrimeBitLength,
-      collectedPrimeCount,
-    },
+    ...status,
     methods,
-    mail: {
-      domain: composer.settings.mail.domain,
-      webmailUrl: composer.settings.mail.webmailUrl,
-      signupUrl: composer.settings.mail.signupUrl,
-    },
     actor: user
       ? { id: user.id, login: user.login, email: user.email, role: user.role }
       : { role: "GUEST" },

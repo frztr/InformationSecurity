@@ -1,13 +1,20 @@
 import { bitLengthOf, modularPower, rsaCrtModularPower } from "@/domain/cryptography/primes/BigIntegerArithmetic";
-import type { RandomIntegerSource } from "@/domain/cryptography/primes/RandomIntegerSource";
+import type { IRandomIntegerSource } from "@/domain/cryptography/primes/IRandomIntegerSource";
 import type { RsaPrivateKey, RsaPublicKey } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
  * RSA с дополнением PKCS#1 v1.5. Длина модуля по умолчанию — 32768 бит.
  */
 export class RsaCipher {
-  public constructor(private readonly randomIntegerSource: RandomIntegerSource) {}
+  public constructor(private readonly randomIntegerSource: IRandomIntegerSource) {}
 
+  /**
+   * Шифрует данные открытым ключом с дополнением PKCS#1 v1.5 (тип 2).
+   * Длинные сообщения разбиваются на блоки.
+   * @param plaintext Открытый текст.
+   * @param publicKey Открытый ключ RSA.
+   * @returns Конкатенация шифрблоков длины модуля.
+   */
   public encrypt(plaintext: Uint8Array, publicKey: RsaPublicKey): Uint8Array {
     const modulusByteLength = Math.ceil(publicKey.modulusBitLength / 8);
     const maximumChunkLength = modulusByteLength - 11;
@@ -28,6 +35,12 @@ export class RsaCipher {
     return result;
   }
 
+  /**
+   * Расшифровывает данные закрытым ключом (CRT) и снимает PKCS#1 v1.5.
+   * @param ciphertext Шифртекст, кратный длине модуля.
+   * @param privateKey Закрытый ключ RSA.
+   * @returns Открытый текст.
+   */
   public decrypt(ciphertext: Uint8Array, privateKey: RsaPrivateKey): Uint8Array {
     const modulusByteLength = Math.ceil(privateKey.modulusBitLength / 8);
     if (ciphertext.length === 0 || ciphertext.length % modulusByteLength !== 0) {
@@ -50,6 +63,13 @@ export class RsaCipher {
     return result;
   }
 
+  /**
+   * Шифрует один блок с кодированием PKCS#1 type 2.
+   * @param plaintext Открытый фрагмент, умещающийся в один блок.
+   * @param publicKey Открытый ключ RSA.
+   * @param modulusByteLength Длина модуля в байтах.
+   * @returns Шифрблок длины модуля.
+   */
   private encryptSingleBlock(plaintext: Uint8Array, publicKey: RsaPublicKey, modulusByteLength: number): Uint8Array {
     const encodedMessage = this.encodePkcs1Type2(plaintext, modulusByteLength);
     const messageInteger = this.bytesToInteger(encodedMessage);
@@ -57,6 +77,13 @@ export class RsaCipher {
     return this.integerToFixedBytes(cipherInteger, modulusByteLength);
   }
 
+  /**
+   * Расшифровывает один блок через CRT и декодирует PKCS#1 type 2.
+   * @param cipherBlock Шифрблок длины модуля.
+   * @param privateKey Закрытый ключ RSA.
+   * @param modulusByteLength Длина модуля в байтах.
+   * @returns Открытый фрагмент без дополнения.
+   */
   private decryptSingleBlock(cipherBlock: Uint8Array, privateKey: RsaPrivateKey, modulusByteLength: number): Uint8Array {
     const cipherInteger = this.bytesToInteger(cipherBlock);
     const messageInteger = rsaCrtModularPower(
@@ -69,6 +96,12 @@ export class RsaCipher {
     return this.decodePkcs1Type2(encodedMessage);
   }
 
+  /**
+   * Кодирует сообщение по PKCS#1 v1.5 type 2 (случайное ненулевое дополнение).
+   * @param message Открытый фрагмент.
+   * @param modulusByteLength Длина модуля в байтах.
+   * @returns Блок EM длины модуля.
+   */
   private encodePkcs1Type2(message: Uint8Array, modulusByteLength: number): Uint8Array {
     const paddingLength = modulusByteLength - message.length - 3;
     if (paddingLength < 8) {
@@ -86,6 +119,11 @@ export class RsaCipher {
     return encoded;
   }
 
+  /**
+   * Снимает кодирование PKCS#1 v1.5 type 2.
+   * @param encodedMessage Блок EM длины модуля.
+   * @returns Исходный открытый фрагмент.
+   */
   private decodePkcs1Type2(encodedMessage: Uint8Array): Uint8Array {
     if (encodedMessage[0] !== 0x00 || encodedMessage[1] !== 0x02) {
       throw new Error("Некорректное дополнение PKCS#1 v1.5.");
@@ -102,6 +140,9 @@ export class RsaCipher {
     return encodedMessage.subarray(separatorIndex + 1);
   }
 
+  /**
+   * Возвращает случайный байт из диапазона 1…255 для PKCS#1 type 2.
+   */
   private nextNonZeroRandomByte(): number {
     const buffer = new Uint8Array(1);
     do {
@@ -110,6 +151,10 @@ export class RsaCipher {
     return buffer[0];
   }
 
+  /**
+   * Читает байты как целое big-endian.
+   * @param bytes Исходные байты.
+   */
   private bytesToInteger(bytes: Uint8Array): bigint {
     let value = 0n;
     for (const byte of bytes) {
@@ -118,6 +163,11 @@ export class RsaCipher {
     return value;
   }
 
+  /**
+   * Записывает целое в буфер фиксированной длины (big-endian, старшие нули).
+   * @param value Неотрицательное целое.
+   * @param byteLength Длина буфера в байтах.
+   */
   private integerToFixedBytes(value: bigint, byteLength: number): Uint8Array {
     if (bitLengthOf(value) > byteLength * 8) {
       throw new Error("Целое число не помещается в запрошенную длину блока RSA.");

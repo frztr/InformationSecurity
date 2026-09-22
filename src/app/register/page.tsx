@@ -1,51 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { registerUser, type Enrollment } from "@/ui/api/authApi";
+import { useBusyAction } from "@/ui/http/useBusyAction";
+import { useSystemStatus } from "@/ui/useSystemStatus";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Enrollment = {
-  otpAuthUrl: string;
-  totpSecretBase32: string;
-  recoveryCodes: string[];
-  qrDataUrl: string;
-};
-
+/**
+ * Страница регистрации: форма учётной записи, секрет TOTP и коды восстановления.
+ */
 export default function RegisterPage() {
   const [login, setLogin] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [pending, setPending] = useState(false);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const { pending, run } = useBusyAction();
+  const { mail } = useSystemStatus();
 
   async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setPending(true);
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, email, password, passwordConfirmation }),
-      });
-      const payload = (await response.json()) as Enrollment & { error?: string };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Ошибка регистрации");
-        return;
-      }
-      const qr = payload.qrDataUrl;
-      setQrDataUrl(qr);
-      setEnrollment(payload);
-      toast.success("Учётная запись создана. Сохраните коды восстановления.");
-    } catch {
-      toast.error("Ошибка регистрации");
-    } finally {
-      setPending(false);
+    const result = await run(
+      () => registerUser({ login, email, password, passwordConfirmation }),
+      { success: "Учётная запись создана. Сохраните коды восстановления." },
+    );
+    if (result.ok) {
+      setEnrollment(result.data);
     }
   }
 
@@ -55,10 +39,12 @@ export default function RegisterPage() {
         <Card>
           <CardHeader>
             <CardTitle>3FA настроена</CardTitle>
-            <CardDescription>Привяжите TOTP и сохраните коды. Они больше не покажутся.</CardDescription>
+            <CardDescription>
+              Секрет TOTP (HMAC-Стрибог-512) и коды восстановления. Они больше не покажутся. Стандартный Google Authenticator с SHA-1 сюда не подойдёт.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {qrDataUrl ? <img src={qrDataUrl} alt="QR TOTP" className="mx-auto rounded-md border" /> : null}
+            {enrollment.qrDataUrl ? <img src={enrollment.qrDataUrl} alt="QR TOTP" className="mx-auto rounded-md border" /> : null}
             <p className="break-all font-mono text-xs">{enrollment.totpSecretBase32}</p>
             <ul className="grid grid-cols-2 gap-2 font-mono text-sm">
               {enrollment.recoveryCodes.map((code) => (
@@ -82,11 +68,19 @@ export default function RegisterPage() {
         <CardHeader>
           <CardTitle>Регистрация</CardTitle>
           <CardDescription>
-            Сначала заведите ящик в Mailu (
-            <a className="underline" href="http://localhost:8025/admin/user/signup/information-security.org" target="_blank" rel="noreferrer">
-              регистрация почты
-            </a>
-            ), затем логин и пароль этой системы. Адрес только на домене information-security.org.
+            Сначала заведите ящик в Mailu
+            {mail.signupUrl ? (
+              <>
+                {" "}
+                (
+                <a className="underline" href={mail.signupUrl} target="_blank" rel="noreferrer">
+                  регистрация почты
+                </a>
+                )
+              </>
+            ) : null}
+            , затем логин и пароль этой системы.
+            {mail.domain ? ` Адрес только на домене ${mail.domain}.` : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -110,7 +104,7 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="ivan@information-security.org"
+                placeholder={mail.domain ? `ivan@${mail.domain}` : "ivan@example.org"}
                 required
                 disabled={pending}
               />

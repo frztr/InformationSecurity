@@ -1,18 +1,32 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { HmacStreebog512 } from "@/domain/cryptography/gost/HmacStreebog512";
 
 const TOTP_TIME_STEP_SECONDS = 30;
 const TOTP_DIGIT_COUNT = 6;
 const TOTP_ALLOWED_STEP_DRIFT = 1;
 
 /**
- * TOTP (RFC 6238) на HMAC-SHA1 — третий фактор 3FA.
+ * TOTP (схема RFC 6238) на HMAC-Стрибог-512 — третий фактор 3FA.
  */
 export class TotpOneTimePasswordService {
+  public constructor(private readonly hmac: HmacStreebog512 = new HmacStreebog512()) {}
+
+  /**
+   * Вычисляет шестизначный TOTP для заданного момента времени.
+   * @param secret Секрет в сырых байтах.
+   * @param unixTimeSeconds Unix-время в секундах.
+   */
   public generateCode(secret: Uint8Array, unixTimeSeconds: number = Math.floor(Date.now() / 1000)): string {
     const timeStep = Math.floor(unixTimeSeconds / TOTP_TIME_STEP_SECONDS);
     return this.generateCodeForTimeStep(secret, timeStep);
   }
 
+  /**
+   * Проверяет код с допуском ±1 шаг (30 с).
+   * @param secret Секрет в сырых байтах.
+   * @param presentedCode Предъявленный шестизначный код.
+   * @param unixTimeSeconds Unix-время в секундах.
+   * @returns `true`, если код совпадает с одним из допустимых шагов.
+   */
   public verifyCode(secret: Uint8Array, presentedCode: string, unixTimeSeconds: number = Math.floor(Date.now() / 1000)): boolean {
     const normalizedCode = presentedCode.trim();
     if (!/^\d{6}$/.test(normalizedCode)) {
@@ -29,10 +43,13 @@ export class TotpOneTimePasswordService {
     return false;
   }
 
+  /**
+   * Строит шестизначный код для заданного шага времени (динамическое усечение HMAC).
+   * @param secret Секрет в сырых байтах.
+   * @param timeStep Номер 30-секундного интервала.
+   */
   private generateCodeForTimeStep(secret: Uint8Array, timeStep: number): string {
-    const timeBuffer = Buffer.alloc(8);
-    timeBuffer.writeBigUInt64BE(BigInt(timeStep));
-    const digest = createHmac("sha1", Buffer.from(secret)).update(timeBuffer).digest();
+    const digest = this.hmac.digest(secret, timeStepToBytes(timeStep));
     const offset = digest[digest.length - 1] & 0x0f;
     const truncated =
       ((digest[offset] & 0x7f) << 24) |
@@ -43,12 +60,30 @@ export class TotpOneTimePasswordService {
     return code.toString().padStart(TOTP_DIGIT_COUNT, "0");
   }
 
+  /**
+   * Сравнивает строки за время, не зависящее от совпадения префикса.
+   * @param left Первая строка.
+   * @param right Вторая строка.
+   * @returns `true`, если строки равны.
+   */
   private constantTimeStringEquals(left: string, right: string): boolean {
-    const leftBuffer = Buffer.from(left);
-    const rightBuffer = Buffer.from(right);
-    if (leftBuffer.length !== rightBuffer.length) {
+    if (left.length !== right.length) {
       return false;
     }
-    return timingSafeEqual(leftBuffer, rightBuffer);
+    let difference = 0;
+    for (let index = 0; index < left.length; index += 1) {
+      difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+    }
+    return difference === 0;
   }
+}
+
+function timeStepToBytes(timeStep: number): Uint8Array {
+  let remaining = BigInt(timeStep);
+  const bytes = new Uint8Array(8);
+  for (let index = 7; index >= 0; index -= 1) {
+    bytes[index] = Number(remaining & 0xffn);
+    remaining >>= 8n;
+  }
+  return bytes;
 }

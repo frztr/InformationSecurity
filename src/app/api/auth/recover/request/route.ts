@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer } from "@/infrastructure/composition/ApplicationComposer";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { RequestPasswordResetRequest } from "@/infrastructure/http/contracts";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const body = (await request.json()) as { email?: string };
-  await getApplicationComposer().requestPasswordResetUseCase.execute(body.email ?? "");
+/**
+ * POST: запрашивает письмо со кодом и токеном сброса пароля, если адрес есть в системе.
+ */
+export const POST = endpoint(jsonBody(RequestPasswordResetRequest), async ({ body }) => {
+  const { passwordReset } = await getReadyServices();
+  await passwordReset.requestPasswordReset(body.email);
   return NextResponse.json({
     message: "Если адрес есть в системе, письмо с кодом и токеном отправлено.",
   });
-}
+});

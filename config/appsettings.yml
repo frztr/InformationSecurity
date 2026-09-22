@@ -1,8 +1,6 @@
 rsa:
   modulusBitLength: 32768
   publicExponent: 65537
-  millerRabinWitnessRoundCount: 3
-  trialDivisionPrimeCount: 10000
 
 kafka:
   brokers:
@@ -24,8 +22,7 @@ smtp:
 
 mail:
   domain: information-security.org
-  webmailUrl: http://localhost:8025/webmail
-  signupUrl: http://localhost:8025/admin/user/signup/information-security.org
+  publicOrigin: http://localhost:8025
 
 auth:
   emailOtpTtlSeconds: 300

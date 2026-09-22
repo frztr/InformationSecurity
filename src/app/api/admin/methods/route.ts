@@ -1,29 +1,34 @@
 import { NextResponse } from "next/server";
-import { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import { UserRole } from "@/domain/identity/UserRole";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { authenticate, authorize } from "@/infrastructure/http/AuthenticationMiddleware";
+import { SetEncryptionMethodRequest } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
-export async function GET(): Promise<Response> {
-  await initializeApplication();
-  const methods = await getApplicationComposer().encryptionMethodCatalog.list();
-  return NextResponse.json({ methods });
-}
+/**
+ * GET: список методов шифрования и признак их включения. Без аутентификации.
+ */
+export const GET = endpoint(async () => {
+  const { administration } = await getReadyServices();
+  return NextResponse.json({ methods: await administration.getAllEncryptionMethods() });
+});
 
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user || user.role !== UserRole.ADMIN) {
-    return NextResponse.json({ error: "Только администратор" }, { status: 403 });
-  }
-
-  const body = (await request.json()) as { method?: string; enabled?: boolean };
-  const method = body.method === EncryptionMethod.KUZNYECHIK ? EncryptionMethod.KUZNYECHIK : EncryptionMethod.RSA;
-
-  try {
-    await getApplicationComposer().toggleEncryptionMethodUseCase.execute(user, method, Boolean(body.enabled));
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка" }, { status: 400 });
-  }
-}
+/**
+ * POST: включает или выключает метод шифрования. Требует роль администратора.
+ */
+export const POST = endpoint(
+  authenticate,
+  authorize(UserRole.ADMIN),
+  jsonBody(SetEncryptionMethodRequest),
+  catchErrors(400, "Ошибка"),
+  async ({ user, body }) => {
+    const { administration } = await getReadyServices();
+    return jsonFromResult(
+      await administration.setEncryptionMethodEnabled(user, body.method, body.enabled),
+      403,
+      () => ({ ok: true }),
+    );
+  },
+);

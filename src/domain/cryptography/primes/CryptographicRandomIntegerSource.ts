@@ -1,14 +1,44 @@
-import type { RandomIntegerSource } from "@/domain/cryptography/primes/RandomIntegerSource";
-import { randomFillSync } from "node:crypto";
+import { openSync, readSync } from "node:fs";
+import type { IRandomIntegerSource } from "@/domain/cryptography/primes/IRandomIntegerSource";
 
 /**
- * Криптографически стойкий источник случайных целых чисел (аналог C# RandomNumberGenerator).
+ * Криптографически стойкий источник случайных байт: чтение /dev/urandom.
  */
-export class CryptographicRandomIntegerSource implements RandomIntegerSource {
+export class CryptographicRandomIntegerSource implements IRandomIntegerSource {
+  private readonly urandomFd = openSync("/dev/urandom", "r");
+
+  /**
+   * Заполняет буфер байтами из /dev/urandom.
+   * @param buffer Целевой буфер.
+   */
   public fillBytes(buffer: Uint8Array): void {
-    randomFillSync(buffer);
+    let offset = 0;
+    while (offset < buffer.length) {
+      const bytesRead = readSync(this.urandomFd, buffer, offset, buffer.length - offset, null);
+      if (bytesRead <= 0) {
+        throw new Error("Не удалось прочитать энтропию из /dev/urandom.");
+      }
+      offset += bytesRead;
+    }
   }
 
+  /**
+   * Возвращает новый массив из заданного числа случайных байт.
+   * @param byteCount Длина массива.
+   * @returns Случайные байты.
+   */
+  public nextBytes(byteCount: number): Uint8Array {
+    const bytes = new Uint8Array(byteCount);
+    this.fillBytes(bytes);
+    return bytes;
+  }
+
+  /**
+   * Равномерно выбирает целое на закрытом отрезке.
+   * @param inclusiveMinimum Нижняя граница включительно.
+   * @param inclusiveMaximum Верхняя граница включительно.
+   * @returns Случайное целое из [inclusiveMinimum, inclusiveMaximum].
+   */
   public nextInclusive(inclusiveMinimum: bigint, inclusiveMaximum: bigint): bigint {
     if (inclusiveMaximum < inclusiveMinimum) {
       throw new Error("Верхняя граница включительно должна быть не меньше нижней.");
@@ -19,6 +49,11 @@ export class CryptographicRandomIntegerSource implements RandomIntegerSource {
     return inclusiveMinimum + randomOffset;
   }
 
+  /**
+   * Равномерно выбирает целое из полуинтервала [0, exclusiveUpperBound) методом отклонения.
+   * @param exclusiveUpperBound Строго положительная верхняя граница исключительно.
+   * @returns Случайное целое, меньшее exclusiveUpperBound.
+   */
   private nextExclusiveUpperBound(exclusiveUpperBound: bigint): bigint {
     if (exclusiveUpperBound <= 0n) {
       throw new Error("Верхняя граница исключительно должна быть больше нуля.");

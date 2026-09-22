@@ -1,35 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { verifyEmailOtp } from "@/ui/api/authApi";
+import { useBusyAction } from "@/ui/http/useBusyAction";
+import { publicHostLabel, useSystemStatus } from "@/ui/useSystemStatus";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Второй фактор входа: одноразовый код из письма. Требует незавершённый вход.
+ */
 export default function LoginEmailPage() {
   const [otpCode, setOtpCode] = useState("");
-  const [pending, setPending] = useState(false);
+  const { pending, run } = useBusyAction();
+  const { mail } = useSystemStatus();
 
   async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setPending(true);
-    try {
-      const response = await fetch("/api/auth/login/email-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otpCode }),
-      });
-      const payload = (await response.json()) as { error?: string; next?: string };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Ошибка");
-        return;
-      }
-      window.location.href = payload.next ?? "/login/totp";
-    } catch {
-      toast.error("Ошибка");
-    } finally {
-      setPending(false);
+    const result = await run(() => verifyEmailOtp(otpCode));
+    if (result.ok) {
+      window.location.href = result.data.next;
     }
   }
 
@@ -39,10 +31,15 @@ export default function LoginEmailPage() {
         <CardHeader>
           <CardTitle>Вход · фактор 2</CardTitle>
           <CardDescription>
-            Код из письма в веб-почте:{" "}
-            <a className="underline" href="http://localhost:8025/webmail" target="_blank" rel="noreferrer">
-              localhost:8025/webmail
-            </a>
+            Код из письма в веб-почте
+            {mail.webmailUrl ? (
+              <>
+                :{" "}
+                <a className="underline" href={mail.webmailUrl} target="_blank" rel="noreferrer">
+                  {publicHostLabel(mail.webmailUrl)}
+                </a>
+              </>
+            ) : null}
             .
           </CardDescription>
         </CardHeader>

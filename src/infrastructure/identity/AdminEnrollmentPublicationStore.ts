@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DefaultAdminEnrollment } from "@/application/administration/PublishDefaultAdminEnrollmentUseCase";
+import type { DefaultAdminEnrollment } from "@/application/administration/AdministrationService";
 
 const ROOT = join(tmpdir(), "is-webapp-admin-enrollment");
 const FILE = join(ROOT, "enrollment.json");
@@ -12,6 +12,11 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+/**
+ * Читает запись регистрации администратора из файла во временном каталоге или создаёт её под файловой блокировкой.
+ * @param create Фабрика записи, вызывается один раз при отсутствии файла.
+ * @returns Запись и признак, что она создана этим вызовом.
+ */
 export async function readOrCreateAdminEnrollment(
   create: () => Promise<DefaultAdminEnrollment>,
 ): Promise<{ enrollment: DefaultAdminEnrollment; createdNow: boolean }> {
@@ -52,10 +57,18 @@ export async function readOrCreateAdminEnrollment(
   };
 }
 
+/**
+ * Проверяет маркер успешной отправки письма с данными регистрации администратора.
+ * @returns true, если файл-маркер содержит ok.
+ */
 export function isAdminEnrollmentMailSent(): boolean {
   return existsSync(MAIL_SENT) && readFileSync(MAIL_SENT, "utf8").trim() === "ok";
 }
 
+/**
+ * Записывает маркер успешной отправки письма с данными регистрации администратора.
+ * @returns Ничего.
+ */
 export function markAdminEnrollmentMailSent(): void {
   writeFileSync(MAIL_SENT, "ok");
 }

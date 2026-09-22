@@ -1,6 +1,10 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * Каркас загрузки страницы: заголовок и набор карточек-скелетов.
+ * @param props.cardCount Число карточек; по умолчанию 2.
+ */
 export function PageSectionSkeleton({ cardCount = 2 }: { cardCount?: number }) {
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">

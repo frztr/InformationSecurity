@@ -2,37 +2,28 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
+import { loginWithPassword } from "@/ui/api/authApi";
+import { useBusyAction } from "@/ui/http/useBusyAction";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Первый фактор входа: логин и пароль, затем переход к коду из письма.
+ */
 export default function LoginPage() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
-  const [pending, setPending] = useState(false);
+  const { pending, run } = useBusyAction();
 
   async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setPending(true);
-    try {
-      const response = await fetch("/api/auth/login/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, password }),
-      });
-      const payload = (await response.json()) as { error?: string; next?: string; emailHint?: string };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Ошибка входа");
-        return;
-      }
-      toast.success(`Код отправлен на ${payload.emailHint}`);
-      window.location.href = payload.next ?? "/login/email";
-    } catch {
-      toast.error("Ошибка входа");
-    } finally {
-      setPending(false);
+    const result = await run(() => loginWithPassword(login, password), {
+      success: (payload) => `Код отправлен на ${payload.emailHint}`,
+    });
+    if (result.ok) {
+      window.location.href = result.data.next;
     }
   }
 

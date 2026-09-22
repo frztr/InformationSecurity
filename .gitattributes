@@ -1,0 +1,2 @@
+# Bind-mounts go into Linux containers. CRLF on Windows checkouts breaks /bin/sh.
+*.sh text eol=lf

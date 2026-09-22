@@ -1,8 +1,11 @@
 import { Kafka, type Consumer, logLevel } from "kafkajs";
-import type { CollectedPrimeNumberRepository } from "@/domain/cryptography/primes/CollectedPrimeNumberRepository";
+import type { ICollectedPrimeNumberRepository } from "@/domain/cryptography/primes/ICollectedPrimeNumberRepository";
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
-import type { SystemRsaKeyStore } from "@/domain/cryptography/rsa/SystemRsaKeyStore";
+import type { ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
 
+/**
+ * Параметры потребителя Kafka для простых чисел.
+ */
 export type KafkaPrimeConsumerSettings = {
   brokers: string[];
   topic: string;
@@ -17,8 +20,7 @@ type PrimeNumberPublishedMessage = {
 };
 
 /**
- * Забирает простые числа из Kafka (ветка IS-prime-number-generator)
- * и собирает из двух 16384-битных простых ключ RSA-32768.
+ * Сохраняет простые из топика Kafka и собирает системную пару RSA, когда в пуле достаточно подходящих простых.
  */
 export class KafkaRsaKeyAssembler {
   private consumer: Consumer | null = null;
@@ -26,17 +28,25 @@ export class KafkaRsaKeyAssembler {
 
   public constructor(
     private readonly settings: KafkaPrimeConsumerSettings,
-    private readonly collectedPrimeNumberRepository: CollectedPrimeNumberRepository,
-    private readonly systemRsaKeyStore: SystemRsaKeyStore,
+    private readonly collectedPrimeNumberRepository: ICollectedPrimeNumberRepository,
+    private readonly systemRsaKeyStore: ISystemRsaKeyStore,
     private readonly rsaKeyPairAssembler: RsaKeyPairAssembler,
     private readonly publicExponent: bigint,
     private readonly modulusBitLength: number,
   ) {}
 
+  /**
+   * Ожидаемая битовая длина простых: половина длины модуля RSA.
+   * @returns Число бит простого.
+   */
   public expectedPrimeBitLength(): number {
     return this.modulusBitLength / 2;
   }
 
+  /**
+   * Запускает сборку: при готовом ключе нужной длины выходит; иначе помечает GENERATING, пробует пул и подписывается на Kafka с повторами.
+   * @returns Ничего после успешного подключения или если ключ уже готов.
+   */
   public async start(): Promise<void> {
     if (this.started) {
       return;
@@ -68,6 +78,9 @@ export class KafkaRsaKeyAssembler {
     }
   }
 
+  /**
+   * Подключается к Kafka, при необходимости создаёт топик и обрабатывает сообщения с простыми.
+   */
   private async connectAndConsume(): Promise<void> {
     const kafka = new Kafka({
       clientId: this.settings.clientId,
@@ -115,6 +128,10 @@ export class KafkaRsaKeyAssembler {
     );
   }
 
+  /**
+   * Создаёт топик простых чисел, если его ещё нет.
+   * @param kafka Клиент Kafka.
+   */
   private async ensureTopicExists(kafka: Kafka): Promise<void> {
     const admin = kafka.admin();
     await admin.connect();
@@ -132,6 +149,9 @@ export class KafkaRsaKeyAssembler {
     }
   }
 
+  /**
+   * Отключает потребителя перед повторным подключением.
+   */
   private async disconnectConsumer(): Promise<void> {
     if (!this.consumer) {
       return;
@@ -144,6 +164,10 @@ export class KafkaRsaKeyAssembler {
     this.consumer = null;
   }
 
+  /**
+   * Пытается собрать пару RSA из накопленных простых нужной длины.
+   * @returns `true`, если пара сохранена в хранилище ключей.
+   */
   private async tryAssembleFromStoredPrimes(): Promise<boolean> {
     const storedPrimes = await this.collectedPrimeNumberRepository.listByBitLength(this.expectedPrimeBitLength());
     const primeValues = storedPrimes.map((item) => BigInt(item.decimalValue));

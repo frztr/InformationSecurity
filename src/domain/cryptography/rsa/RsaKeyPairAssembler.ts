@@ -2,9 +2,17 @@ import { bitLengthOf, greatestCommonDivisor, leastCommonMultiple, modularInverse
 import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
- * Собирает ключ RSA из двух простых, которые пришли от внешнего генератора.
+ * Собирает ключ RSA из двух простых.
  */
 export class RsaKeyPairAssembler {
+  /**
+   * Собирает пару ключей из двух простых, если модуль имеет нужную длину и e взаимно просто с λ(n).
+   * @param primeP Первое простое.
+   * @param primeQ Второе простое.
+   * @param publicExponent Открытая экспонента e.
+   * @param expectedModulusBitLength Ожидаемая длина модуля в битах.
+   * @returns Пара ключей либо null, если условия не выполнены.
+   */
   public tryAssemble(
     primeP: bigint,
     primeQ: bigint,
@@ -43,6 +51,13 @@ export class RsaKeyPairAssembler {
     };
   }
 
+  /**
+   * Подбирает пару различных простых из пула, из которой собирается ключ.
+   * @param primes Кандидаты простых.
+   * @param publicExponent Открытая экспонента e.
+   * @param expectedModulusBitLength Ожидаемая длина модуля в битах.
+   * @returns Первая успешная пара ключей либо null.
+   */
   public tryAssembleFromPool(
     primes: readonly bigint[],
     publicExponent: bigint,

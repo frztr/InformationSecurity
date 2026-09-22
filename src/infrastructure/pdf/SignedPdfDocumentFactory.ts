@@ -3,6 +3,9 @@ import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, type PDFFont, rgb } from "pdf-lib";
 
+/**
+ * Содержимое подписанного PDF-экспорта сообщения.
+ */
 export type SignedPdfContent = {
   messageId: string;
   userLogin: string;
@@ -26,11 +29,16 @@ const BOTTOM_MARGIN = 50;
 const FONT_SIZE = 8;
 
 /**
- * PDF с исходником, шифртекстом, ключами и ЭЦП (Стрибог-512 + RSA).
+ * Собирает PDF с исходником, шифртекстом, ключами и ЭЦП (Стрибог-512 + RSA).
  * Helvetica/Courier в pdf-lib без кириллицы и без переносов `\n` — из‑за этого
  * ключи PEM наслаивались, а русский текст превращался в «?».
  */
 export class SignedPdfDocumentFactory {
+  /**
+   * Строит PDF (несколько страниц при необходимости) и возвращает байты.
+   * @param content Поля экспорта.
+   * @returns Байты PDF.
+   */
   public async create(content: SignedPdfContent): Promise<Uint8Array> {
     const pdfDocument = await PDFDocument.create();
     pdfDocument.registerFontkit(fontkit);

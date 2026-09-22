@@ -8,9 +8,9 @@ MVP системы защиты на Next.js (DDD, TypeScript): RSA-32768, «К�
 | --- | --- |
 | RSA-32768 | `src/domain/cryptography/rsa` — модуль собирается из двух **16384-битных простых**, которые публикует образ `frztr/prime-number-generator` в Kafka (`prime-numbers`). Веб-приложение **не** ищет 32768-битные простые само. |
 | Кузнечик | `src/domain/cryptography/gost/KuznyechikCipher.ts` (RFC 7801) |
-| Стрибог-512 | `src/domain/cryptography/gost/Streebog512Hasher.ts` (RFC 6986) |
-| ЭЦП PDF | Стрибог-512 + RSA PKCS#1, `ExportSignedPdfUseCase` |
-| 3FA | пароль → OTP на почту → TOTP или код восстановления |
+| Стрибог-512 | `Streebog512Hasher.ts`, HMAC — `HmacStreebog512.ts` (RFC 2104 поверх ГОСТ Р 34.11-2012) |
+| ЭЦП PDF | Стрибог-512 + RSA PKCS#1, `MessageService.exportMessageAsSignedPdf` |
+| 3FA | пароль → OTP на почту → TOTP на HMAC-Стрибог-512 или код восстановления |
 | Хэш паролей | Стрибог-512 (ГОСТ Р 34.11-2012), соль + пароль |
 | Секреты | `config/secrets.yml` (отдельно от `config/appsettings.yml`) |
 
@@ -50,8 +50,6 @@ docker compose up --build
 
 Генератор ищет **16384-битные** простые (Миллер–Рабин в C#-воркере) и пишет их в топик `prime-numbers`. Веб-приложение копит их в PostgreSQL и, когда найдётся пара с модулем ровно 32768 бит, сохраняет системный ключ. Пока ключи не готовы, «Кузнечик» доступен сразу. HTTP-поток Node при этом не блокируется.
 
-Самопроверка ГОСТ и RSA-1024 (`npx tsx scripts/crypto.self-test.ts`) по-прежнему генерирует короткие простые внутри процесса — только для тестов, не для боевого RSA-32768.
-
 ## Локально без полной сборки веб-образа
 
 Нужны PostgreSQL, Mailu, Kafka и генератор:
@@ -73,15 +71,28 @@ npm run dev
 
 1. Пароль
 2. Шестизначный код из письма (веб-почта http://localhost:8025/webmail)
-3. TOTP (Aegis / Google Authenticator) или одноразовый код восстановления `XXXX-XXXX-XXXX`
+3. TOTP на HMAC-Стрибог-512 (не Google Authenticator / SHA-1) или одноразовый код восстановления `XXXX-XXXX-XXXX`
 
 Если устройство TOTP потеряно: коды восстановления или сброс пароля через почту.
 
 ## Слои DDD
 
 ```
-src/domain          сущности и алгоритмы
-src/application     сценарии (регистрация, 3FA, шифрование, PDF)
-src/infrastructure  Prisma, SMTP, YAML, PDF, Kafka
-src/app             Next.js UI и HTTP-адаптеры
+src/domain          сущности, алгоритмы, интерфейсы репозиториев
+src/application     сервисы (координация и бизнес-логика)
+src/infrastructure  реализации репозиториев (Prisma), SMTP, YAML, PDF, Kafka
+src/app             тонкие HTTP-эндпоинты и страницы — только вызывают сервисы
 ```
+
+Страницы при загрузке и API-роуты ходят в одни и те же сервисы через `getReadyServices()`:
+
+| Сервис | За что отвечает |
+| --- | --- |
+| `authentication` | вход 3FA, сессия, выход |
+| `registration` | регистрация пользователя |
+| `passwordReset` | запрос и подтверждение сброса пароля |
+| `messages` | шифрование, расшифрование, журнал, подписанный PDF |
+| `administration` | пользователи, методы шифрования, bootstrap администратора |
+| `system` | статус RSA, Kafka и почты |
+
+Обращения к БД — только через репозитории: интерфейс в `src/domain`, Prisma-реализация в `src/infrastructure/persistence/prisma`.

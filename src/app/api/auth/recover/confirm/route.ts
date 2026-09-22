@@ -1,24 +1,21 @@
-import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer } from "@/infrastructure/composition/ApplicationComposer";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { ConfirmPasswordResetRequest } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const body = (await request.json()) as {
-    email?: string;
-    otpCode?: string;
-    resetToken?: string;
-    newPassword?: string;
-  };
-
-  try {
-    await getApplicationComposer().confirmPasswordResetUseCase.execute(
-      body.email ?? "",
-      body.otpCode ?? "",
-      body.resetToken ?? "",
-      body.newPassword ?? "",
+/**
+ * POST: подтверждает сброс пароля кодом из письма, токеном и новым паролем.
+ */
+export const POST = endpoint(
+  jsonBody(ConfirmPasswordResetRequest),
+  catchErrors(400, "Ошибка сброса пароля"),
+  async ({ body }) => {
+    const { passwordReset } = await getReadyServices();
+    return jsonFromResult(
+      await passwordReset.confirmPasswordReset(body.email, body.otpCode, body.resetToken, body.newPassword),
+      400,
+      () => ({ ok: true }),
     );
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка сброса пароля" }, { status: 400 });
-  }
-}
+  },
+);

@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Блок текста с кнопкой копирования в буфер обмена.
+ * @param props.label Подпись блока.
+ * @param props.value Копируемое содержимое.
+ * @param props.wrap Переносить длинные строки (`true` по умолчанию).
+ */
 export function CopyableBlock({ label, value, wrap = true }: { label: string; value: string; wrap?: boolean }) {
   const [copied, setCopied] = useState(false);
 

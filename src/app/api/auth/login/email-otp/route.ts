@@ -1,16 +1,22 @@
-import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer } from "@/infrastructure/composition/ApplicationComposer";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
 import { readPendingLoginId } from "@/infrastructure/http/AuthCookies";
+import { VerifyEmailOtpRequest } from "@/infrastructure/http/contracts";
+import { catchErrors, jsonFromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
-export async function POST(request: Request): Promise<Response> {
-  await initializeApplication();
-  const body = (await request.json()) as { otpCode?: string };
-  const pendingLoginId = await readPendingLoginId();
-
-  try {
-    await getApplicationComposer().verifyEmailOtpUseCase.execute(pendingLoginId ?? "", body.otpCode ?? "");
-    return NextResponse.json({ next: "/login/totp" });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка 2-го фактора" }, { status: 401 });
-  }
-}
+/**
+ * POST: проверяет код из письма (второй фактор) по cookie незавершённого входа.
+ */
+export const POST = endpoint(
+  jsonBody(VerifyEmailOtpRequest),
+  catchErrors(401, "Ошибка 2-го фактора"),
+  async ({ body }) => {
+    const { authentication } = await getReadyServices();
+    return jsonFromResult(
+      await authentication.verifyEmailOtp((await readPendingLoginId()) ?? "", body.otpCode),
+      401,
+      () => ({ next: "/login/totp" }),
+    );
+  },
+);

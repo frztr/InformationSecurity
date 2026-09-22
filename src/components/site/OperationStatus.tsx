@@ -2,6 +2,12 @@ import { Loader2Icon } from "lucide-react";
 import type { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+/**
+ * Текст ожидания криптооперации в зависимости от метода и вида действия.
+ * @param kind Шифрование, расшифрование или формирование PDF.
+ * @param method Метод шифрования записи.
+ * @returns Сообщение для индикатора ожидания.
+ */
 export function cryptoWaitMessage(kind: "encrypt" | "decrypt" | "pdf", method: EncryptionMethod): string {
   if (method === "RSA") {
     if (kind === "encrypt") {
@@ -21,6 +27,11 @@ export function cryptoWaitMessage(kind: "encrypt" | "decrypt" | "pdf", method: E
   return "Формируется подписанный PDF…";
 }
 
+/**
+ * Индикатор длительной операции со спиннером и поясняющим текстом.
+ * @param props.title Заголовок; по умолчанию «Идёт обработка».
+ * @param props.children Пояснение под заголовком.
+ */
 export function OperationStatus({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <Alert>

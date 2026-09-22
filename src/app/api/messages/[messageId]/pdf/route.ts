@@ -1,29 +1,29 @@
 import { NextResponse } from "next/server";
-import { initializeApplication, getApplicationComposer, resolveSessionUser } from "@/infrastructure/composition/ApplicationComposer";
-import { readSessionToken } from "@/infrastructure/http/AuthCookies";
+import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
+import { authenticate } from "@/infrastructure/http/AuthenticationMiddleware";
+import { MessageIdRouteParams } from "@/infrastructure/http/contracts";
+import { catchErrors, fromResult } from "@/infrastructure/http/ErrorMiddleware";
+import { endpoint } from "@/infrastructure/http/HttpPipeline";
+import { routeParams } from "@/infrastructure/http/RequestContractMiddleware";
 
 export const maxDuration = 120;
 
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ messageId: string }> },
-): Promise<Response> {
-  await initializeApplication();
-  const user = await resolveSessionUser(await readSessionToken());
-  if (!user) {
-    return NextResponse.json({ error: "Нужна аутентификация" }, { status: 401 });
-  }
-
-  const { messageId } = await context.params;
-  try {
-    const result = await getApplicationComposer().exportSignedPdfUseCase.execute(user, messageId);
-    return new NextResponse(Buffer.from(result.pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${result.fileName}"`,
-      },
+/**
+ * GET: отдаёт подписанный PDF записи журнала. Требует аутентификацию.
+ */
+export const GET = endpoint(
+  authenticate,
+  routeParams(MessageIdRouteParams),
+  catchErrors(400, "Ошибка PDF"),
+  async ({ user, routeParams: params }) => {
+    const { messages } = await getReadyServices();
+    return fromResult(await messages.exportMessageAsSignedPdf(user, params.messageId), 400, (resultDto) => {
+      return new NextResponse(Buffer.from(resultDto.pdfBytes), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${resultDto.fileName}"`,
+        },
+      });
     });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Ошибка PDF" }, { status: 400 });
-  }
-}
+  },
+);

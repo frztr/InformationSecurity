@@ -15,6 +15,7 @@ export const PI_SUBSTITUTION: readonly number[] = [
   190, 229, 108, 82, 89, 166, 116, 210, 230, 244, 180, 192, 209, 102, 175, 194, 57, 75, 99, 182,
 ];
 
+/** Обратная подстановка π⁻¹: π⁻¹[π[x]] = x. */
 export const PI_INVERSE_SUBSTITUTION: readonly number[] = (() => {
   const inverse: number[] = new Array<number>(256);
   for (let inputByte = 0; inputByte < 256; inputByte += 1) {

@@ -1,35 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { verifyThirdFactor } from "@/ui/api/authApi";
+import { useBusyAction } from "@/ui/http/useBusyAction";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Третий фактор входа: TOTP или код восстановления. Требует незавершённый вход.
+ */
 export default function LoginTotpPage() {
   const [code, setCode] = useState("");
-  const [pending, setPending] = useState(false);
+  const { pending, run } = useBusyAction();
 
   async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setPending(true);
-    try {
-      const response = await fetch("/api/auth/login/third-factor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const payload = (await response.json()) as { error?: string; next?: string };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Ошибка");
-        return;
-      }
-      window.location.href = payload.next ?? "/workspace";
-    } catch {
-      toast.error("Ошибка");
-    } finally {
-      setPending(false);
+    const result = await run(() => verifyThirdFactor(code));
+    if (result.ok) {
+      window.location.href = result.data.next;
     }
   }
 
@@ -38,7 +28,9 @@ export default function LoginTotpPage() {
       <Card className="w-full" aria-busy={pending}>
         <CardHeader>
           <CardTitle>Вход · фактор 3</CardTitle>
-          <CardDescription>Код из TOTP-приложения или одноразовый код восстановления.</CardDescription>
+          <CardDescription>
+            Шестизначный TOTP на HMAC-Стрибог-512 или одноразовый код восстановления. Google Authenticator с SHA-1 этот код не посчитает.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={(event) => void submit(event)}>
