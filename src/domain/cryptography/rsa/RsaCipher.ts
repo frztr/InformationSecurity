@@ -1,6 +1,6 @@
 import { bitLengthOf, modularPower, rsaCrtModularPower } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import type { IRandomIntegerSource } from "@/domain/cryptography/primes/IRandomIntegerSource";
-import type { RsaPrivateKey, RsaPublicKey } from "@/domain/cryptography/rsa/RsaKeyPair";
+import { rsaModulusByteLength, type RsaPrivateKey, type RsaPublicKey } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
  * RSA с дополнением PKCS#1 v1.5. Длина модуля по умолчанию — 32768 бит.
@@ -16,7 +16,7 @@ export class RsaCipher {
    * @returns Конкатенация шифрблоков длины модуля.
    */
   public encrypt(plaintext: Uint8Array, publicKey: RsaPublicKey): Uint8Array {
-    const modulusByteLength = Math.ceil(publicKey.modulusBitLength / 8);
+    const modulusByteLength = rsaModulusByteLength(publicKey.modulus);
     const maximumChunkLength = modulusByteLength - 11;
     if (maximumChunkLength < 1) {
       throw new Error("Модуль RSA слишком короткий для PKCS#1 v1.5.");
@@ -42,7 +42,7 @@ export class RsaCipher {
    * @returns Открытый текст.
    */
   public decrypt(ciphertext: Uint8Array, privateKey: RsaPrivateKey): Uint8Array {
-    const modulusByteLength = Math.ceil(privateKey.modulusBitLength / 8);
+    const modulusByteLength = rsaModulusByteLength(privateKey.modulus);
     if (ciphertext.length === 0 || ciphertext.length % modulusByteLength !== 0) {
       throw new Error("Длина шифртекста RSA должна быть кратна длине модуля.");
     }
@@ -88,9 +88,11 @@ export class RsaCipher {
     const cipherInteger = this.bytesToInteger(cipherBlock);
     const messageInteger = rsaCrtModularPower(
       cipherInteger,
-      privateKey.privateExponent,
       privateKey.primeP,
       privateKey.primeQ,
+      privateKey.dp,
+      privateKey.dq,
+      privateKey.qInv,
     );
     const encodedMessage = this.integerToFixedBytes(messageInteger, modulusByteLength);
     return this.decodePkcs1Type2(encodedMessage);

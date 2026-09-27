@@ -1,5 +1,5 @@
 import { bitLengthOf, greatestCommonDivisor, leastCommonMultiple, modularInverse } from "@/domain/cryptography/primes/BigIntegerArithmetic";
-import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
+import { createRsaPrivateKey, type RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
  * Собирает ключ RSA из двух простых.
@@ -34,20 +34,10 @@ export class RsaKeyPairAssembler {
     }
 
     const privateExponent = modularInverse(publicExponent, carmichaelLambda);
+    const publicKey = { modulus, publicExponent };
     return {
-      publicKey: {
-        modulus,
-        publicExponent,
-        modulusBitLength: expectedModulusBitLength,
-      },
-      privateKey: {
-        modulus,
-        publicExponent,
-        privateExponent,
-        primeP,
-        primeQ,
-        modulusBitLength: expectedModulusBitLength,
-      },
+      publicKey,
+      privateKey: createRsaPrivateKey(modulus, publicExponent, privateExponent, primeP, primeQ),
     };
   }
 

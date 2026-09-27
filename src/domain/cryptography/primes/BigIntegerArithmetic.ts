@@ -97,27 +97,29 @@ export function leastCommonMultiple(left: bigint, right: bigint): bigint {
 }
 
 /**
- * CRT-ускорение RSA(китайская теорема об остатках): c^d mod (p·q) через два возведения по модулям p и q.
- * @param message Основание c. Шифруемое сообщение.
- * @param d Показатель d. Секретная экспонента.
- * @param p Простой множитель модуля p.
- * @param q Простой множитель модуля q.
+ * CRT-ускорение RSA: c^d mod (p·q) через dp, dq, qInv из закрытого ключа.
+ * @param message Основание c.
+ * @param primeP Простое p.
+ * @param primeQ Простое q.
+ * @param dp d mod (p − 1).
+ * @param dq d mod (q − 1).
+ * @param qInv q⁻¹ mod p.
  * @returns c^d mod (p·q).
  */
 export function rsaCrtModularPower(
   message: bigint,
-  d: bigint,
-  p: bigint,
-  q: bigint,
+  primeP: bigint,
+  primeQ: bigint,
+  dp: bigint,
+  dq: bigint,
+  qInv: bigint,
 ): bigint {
-  if (p === q || p <= 1n || q <= 1n) {
+  if (primeP === primeQ || primeP <= 1n || primeQ <= 1n) {
     throw new Error("Для CRT нужны два различных простых p и q.");
   }
 
-  const dp = d % (p - 1n);
-  const dq = d % (q - 1n);
-  const a2 = modularPower(message % p, dp, p);
-  const x1 = modularPower(message % q, dq, q);
-  const x2 = (((a2 - x1) % p + p) * modularInverse(q, p)) % p;
-  return x1 + x2 * q;
+  const residueModP = modularPower(message % primeP, dp, primeP);
+  const residueModQ = modularPower(message % primeQ, dq, primeQ);
+  const h = (((residueModP - residueModQ) % primeP + primeP) * qInv) % primeP;
+  return residueModQ + h * primeQ;
 }

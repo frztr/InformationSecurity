@@ -10,6 +10,7 @@ import { KuznyechikMessageEncryptionStrategy } from "@/application/messaging/Kuz
 import { SystemService } from "@/application/system/SystemService";
 import { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import { parseHexString } from "@/domain/cryptography/HexEncoding";
+import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { CryptographicRandomIntegerSource } from "@/domain/cryptography/primes/CryptographicRandomIntegerSource";
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
 import { RsaStreebogDigitalSignature } from "@/domain/cryptography/rsa/RsaStreebogDigitalSignature";
@@ -223,7 +224,7 @@ export async function initializeApplication(): Promise<void> {
   const keyStore = new PrismaSystemRsaKeyStore();
   const keyPair = await keyStore.tryGetKeyPair();
   const { rsa, kafka } = services.settings;
-  if (keyPair?.publicKey.modulusBitLength !== rsa.modulusBitLength && !kafkaRsaAssemblerStarted) {
+  if ((!keyPair || bitLengthOf(keyPair.publicKey.modulus) !== rsa.modulusBitLength) && !kafkaRsaAssemblerStarted) {
     kafkaRsaAssemblerStarted = true;
     const assembler = new KafkaRsaKeyAssembler(
       {

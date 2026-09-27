@@ -1,5 +1,5 @@
 import { bitLengthOf, modularPower, rsaCrtModularPower } from "@/domain/cryptography/primes/BigIntegerArithmetic";
-import type { RsaPrivateKey, RsaPublicKey } from "@/domain/cryptography/rsa/RsaKeyPair";
+import { rsaModulusByteLength, type RsaPrivateKey, type RsaPublicKey } from "@/domain/cryptography/rsa/RsaKeyPair";
 import { Streebog512Hasher } from "@/domain/cryptography/gost/Streebog512Hasher";
 
 /**
@@ -16,14 +16,17 @@ export class RsaStreebogDigitalSignature {
    */
   public sign(message: Uint8Array, privateKey: RsaPrivateKey): Uint8Array {
     const digest = this.hasher.hashBytes(message);
-    const encodedMessage = this.encodePkcs1Type1(digest, Math.ceil(privateKey.modulusBitLength / 8));
+    const modulusByteLength = rsaModulusByteLength(privateKey.modulus);
+    const encodedMessage = this.encodePkcs1Type1(digest, modulusByteLength);
     const signatureInteger = rsaCrtModularPower(
       this.bytesToInteger(encodedMessage),
-      privateKey.privateExponent,
       privateKey.primeP,
       privateKey.primeQ,
+      privateKey.dp,
+      privateKey.dq,
+      privateKey.qInv,
     );
-    return this.integerToFixedBytes(signatureInteger, Math.ceil(privateKey.modulusBitLength / 8));
+    return this.integerToFixedBytes(signatureInteger, modulusByteLength);
   }
 
   /**
@@ -34,7 +37,7 @@ export class RsaStreebogDigitalSignature {
    * @returns true, если подпись верна.
    */
   public verify(message: Uint8Array, signature: Uint8Array, publicKey: RsaPublicKey): boolean {
-    const modulusByteLength = Math.ceil(publicKey.modulusBitLength / 8);
+    const modulusByteLength = rsaModulusByteLength(publicKey.modulus);
     if (signature.length !== modulusByteLength) {
       return false;
     }

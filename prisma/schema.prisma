@@ -98,11 +98,15 @@ model SystemRsaKey {
   id                 String       @id @default("system")
   status             RsaKeyStatus
   modulusBitLength   Int
+  version            Int          @default(0)
   modulusHex         String?
   publicExponent     String?
   privateExponentHex String?
   primePHex          String?
   primeQHex          String?
+  dpHex              String?
+  dqHex              String?
+  qInvHex            String?
   updatedAt          DateTime     @updatedAt
 }
 

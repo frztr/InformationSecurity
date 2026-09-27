@@ -1,6 +1,7 @@
 "use client";
 
 import type { EncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
+import { rsaKeyMaterialModulusBitLength } from "@/domain/messaging/EncryptionKeyMaterial";
 import type { EncryptedMessageDto } from "@/ui/api/messagesApi";
 import { CopyableBlock } from "@/components/messaging/CopyableBlock";
 import { BusyButton } from "@/components/site/BusyButton";
@@ -117,7 +118,7 @@ function KeyMaterialBlocks({ keyMaterial }: { keyMaterial: EncryptionKeyMaterial
   if (keyMaterial.method === "RSA") {
     return (
       <div className="space-y-3">
-        <p className="text-sm font-medium">Ключи RSA-{keyMaterial.modulusBitLength}</p>
+        <p className="text-sm font-medium">Ключи RSA-{rsaKeyMaterialModulusBitLength(keyMaterial)}</p>
         <CopyableBlock label="Публичный ключ" value={keyMaterial.publicKeyPem} wrap={false} />
         <CopyableBlock label="Секретный ключ" value={keyMaterial.privateKeyPem} wrap={false} />
       </div>

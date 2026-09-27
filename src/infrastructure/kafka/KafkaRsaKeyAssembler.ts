@@ -1,5 +1,6 @@
 import { Kafka, type Consumer, logLevel } from "kafkajs";
 import type { ICollectedPrimeNumberRepository } from "@/domain/cryptography/primes/ICollectedPrimeNumberRepository";
+import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
 import type { ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
 
@@ -54,7 +55,7 @@ export class KafkaRsaKeyAssembler {
     this.started = true;
 
     const existingKey = await this.systemRsaKeyStore.tryGetKeyPair();
-    if (existingKey && existingKey.publicKey.modulusBitLength === this.modulusBitLength) {
+    if (existingKey && bitLengthOf(existingKey.publicKey.modulus) === this.modulusBitLength) {
       return;
     }
 
@@ -99,7 +100,7 @@ export class KafkaRsaKeyAssembler {
     await this.consumer.run({
       eachMessage: async ({ message }) => {
         const alreadyReady = await this.systemRsaKeyStore.tryGetKeyPair();
-        if (alreadyReady && alreadyReady.publicKey.modulusBitLength === this.modulusBitLength) {
+        if (alreadyReady && bitLengthOf(alreadyReady.publicKey.modulus) === this.modulusBitLength) {
           return;
         }
 

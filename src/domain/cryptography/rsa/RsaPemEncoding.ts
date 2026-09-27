@@ -1,4 +1,4 @@
-import { modularInverse } from "@/domain/cryptography/primes/BigIntegerArithmetic";
+import type { RsaPrivateKey } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 const RSA_ENCRYPTION_OID = Uint8Array.from([0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01]);
 const ASN1_NULL = Uint8Array.from([0x05, 0x00]);
@@ -17,34 +17,21 @@ export function encodeRsaPublicKeySpkiPem(modulus: bigint, publicExponent: bigin
 }
 
 /**
- * Кодирует закрытый ключ RSA в PEM PKCS#1.
- * @param modulus Модуль n.
- * @param publicExponent Открытая экспонента e.
- * @param privateExponent Закрытая экспонента d.
- * @param primeP Простой множитель p.
- * @param primeQ Простой множитель q.
+ * Кодирует закрытый ключ RSA в PEM PKCS#1 из уже посчитанных полей ключа.
+ * @param privateKey Закрытый ключ PKCS#1.
  * @returns PEM-блок RSA PRIVATE KEY.
  */
-export function encodeRsaPrivateKeyPkcs1Pem(
-  modulus: bigint,
-  publicExponent: bigint,
-  privateExponent: bigint,
-  primeP: bigint,
-  primeQ: bigint,
-): string {
-  const exponent1 = privateExponent % (primeP - 1n);
-  const exponent2 = privateExponent % (primeQ - 1n);
-  const coefficient = modularInverse(primeQ, primeP);
+export function encodeRsaPrivateKeyPkcs1Pem(privateKey: RsaPrivateKey): string {
   const rsaPrivateKey = encodeSequence(
-    encodeInteger(0n),
-    encodeInteger(modulus),
-    encodeInteger(publicExponent),
-    encodeInteger(privateExponent),
-    encodeInteger(primeP),
-    encodeInteger(primeQ),
-    encodeInteger(exponent1),
-    encodeInteger(exponent2),
-    encodeInteger(coefficient),
+    encodeInteger(BigInt(privateKey.version)),
+    encodeInteger(privateKey.modulus),
+    encodeInteger(privateKey.publicExponent),
+    encodeInteger(privateKey.privateExponent),
+    encodeInteger(privateKey.primeP),
+    encodeInteger(privateKey.primeQ),
+    encodeInteger(privateKey.dp),
+    encodeInteger(privateKey.dq),
+    encodeInteger(privateKey.qInv),
   );
   return encodePem("RSA PRIVATE KEY", rsaPrivateKey);
 }

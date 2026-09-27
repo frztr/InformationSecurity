@@ -1,19 +1,23 @@
 import { EncryptionMethod, type EncryptionMethod as EncryptionMethodName } from "@/domain/cryptography/EncryptionMethod";
 import { toHexString } from "@/domain/cryptography/HexEncoding";
+import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { encodeRsaPrivateKeyPkcs1Pem, encodeRsaPublicKeySpkiPem } from "@/domain/cryptography/rsa/RsaPemEncoding";
-import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
+import { createRsaPrivateKey, type RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
  * Материалы ключа RSA, сохранённые вместе с сообщением.
  */
 export type RsaEncryptionKeyMaterial = {
   method: "RSA";
-  modulusBitLength: number;
+  version: 0;
   publicExponent: string;
   modulusHex: string;
   privateExponentHex: string;
   primePHex: string;
   primeQHex: string;
+  dpHex: string;
+  dqHex: string;
+  qInvHex: string;
   publicKeyPem: string;
   privateKeyPem: string;
 };
@@ -40,37 +44,84 @@ function bigintToEvenHex(value: bigint): string {
 }
 
 /**
+ * Битовая длина модуля из шестнадцатеричной записи n.
+ * @param material Материалы RSA.
+ */
+export function rsaKeyMaterialModulusBitLength(material: RsaEncryptionKeyMaterial): number {
+  return bitLengthOf(BigInt(`0x${material.modulusHex}`));
+}
+
+/**
  * Собирает материалы ключа из системной пары RSA.
  * @param keyPair Пара ключей.
  */
 export function rsaEncryptionKeyMaterial(keyPair: RsaKeyPair): RsaEncryptionKeyMaterial {
-  return completeRsaKeyMaterial({
+  const { publicKey, privateKey } = keyPair;
+  return {
     method: EncryptionMethod.RSA,
-    modulusBitLength: keyPair.publicKey.modulusBitLength,
-    publicExponent: keyPair.publicKey.publicExponent.toString(),
-    modulusHex: bigintToEvenHex(keyPair.publicKey.modulus),
-    privateExponentHex: bigintToEvenHex(keyPair.privateKey.privateExponent),
-    primePHex: bigintToEvenHex(keyPair.privateKey.primeP),
-    primeQHex: bigintToEvenHex(keyPair.privateKey.primeQ),
-    publicKeyPem: "",
-    privateKeyPem: "",
-  });
+    version: privateKey.version,
+    publicExponent: publicKey.publicExponent.toString(),
+    modulusHex: bigintToEvenHex(publicKey.modulus),
+    privateExponentHex: bigintToEvenHex(privateKey.privateExponent),
+    primePHex: bigintToEvenHex(privateKey.primeP),
+    primeQHex: bigintToEvenHex(privateKey.primeQ),
+    dpHex: bigintToEvenHex(privateKey.dp),
+    dqHex: bigintToEvenHex(privateKey.dq),
+    qInvHex: bigintToEvenHex(privateKey.qInv),
+    publicKeyPem: encodeRsaPublicKeySpkiPem(publicKey.modulus, publicKey.publicExponent),
+    privateKeyPem: encodeRsaPrivateKeyPkcs1Pem(privateKey),
+  };
 }
 
 /**
- * Дописывает PEM, если в материалах заданы только числовые поля.
+ * Дописывает PEM и CRT-поля, если в JSON их ещё нет.
  * @param material Частично заполненные материалы RSA.
  */
-function completeRsaKeyMaterial(material: RsaEncryptionKeyMaterial): RsaEncryptionKeyMaterial {
+function completeRsaKeyMaterial(material: {
+  publicExponent: string;
+  modulusHex: string;
+  privateExponentHex: string;
+  primePHex: string;
+  primeQHex: string;
+  dpHex?: string;
+  dqHex?: string;
+  qInvHex?: string;
+  publicKeyPem?: string;
+  privateKeyPem?: string;
+}): RsaEncryptionKeyMaterial {
   const modulus = BigInt(`0x${material.modulusHex}`);
   const publicExponent = BigInt(material.publicExponent);
   const privateExponent = BigInt(`0x${material.privateExponentHex}`);
   const primeP = BigInt(`0x${material.primePHex}`);
   const primeQ = BigInt(`0x${material.primeQHex}`);
+  const privateKey =
+    material.dpHex && material.dqHex && material.qInvHex
+      ? {
+          version: 0 as const,
+          modulus,
+          publicExponent,
+          privateExponent,
+          primeP,
+          primeQ,
+          dp: BigInt(`0x${material.dpHex}`),
+          dq: BigInt(`0x${material.dqHex}`),
+          qInv: BigInt(`0x${material.qInvHex}`),
+        }
+      : createRsaPrivateKey(modulus, publicExponent, privateExponent, primeP, primeQ);
+
   return {
-    ...material,
+    method: EncryptionMethod.RSA,
+    version: 0,
+    publicExponent: material.publicExponent,
+    modulusHex: material.modulusHex,
+    privateExponentHex: material.privateExponentHex,
+    primePHex: material.primePHex,
+    primeQHex: material.primeQHex,
+    dpHex: bigintToEvenHex(privateKey.dp),
+    dqHex: bigintToEvenHex(privateKey.dq),
+    qInvHex: bigintToEvenHex(privateKey.qInv),
     publicKeyPem: material.publicKeyPem || encodeRsaPublicKeySpkiPem(modulus, publicExponent),
-    privateKeyPem: material.privateKeyPem || encodeRsaPrivateKeyPkcs1Pem(modulus, publicExponent, privateExponent, primeP, primeQ),
+    privateKeyPem: material.privateKeyPem || encodeRsaPrivateKeyPkcs1Pem(privateKey),
   };
 }
 
@@ -137,7 +188,6 @@ export function parseEncryptionKeyMaterial(raw: string | null | undefined): Encr
     if (parsed.method === EncryptionMethod.RSA) {
       const material = parsed as Partial<RsaEncryptionKeyMaterial>;
       if (
-        typeof material.modulusBitLength !== "number" ||
         typeof material.publicExponent !== "string" ||
         typeof material.modulusHex !== "string" ||
         typeof material.privateExponentHex !== "string" ||
@@ -147,13 +197,14 @@ export function parseEncryptionKeyMaterial(raw: string | null | undefined): Encr
         return null;
       }
       return completeRsaKeyMaterial({
-        method: EncryptionMethod.RSA,
-        modulusBitLength: material.modulusBitLength,
         publicExponent: material.publicExponent,
         modulusHex: material.modulusHex,
         privateExponentHex: material.privateExponentHex,
         primePHex: material.primePHex,
         primeQHex: material.primeQHex,
+        dpHex: typeof material.dpHex === "string" ? material.dpHex : undefined,
+        dqHex: typeof material.dqHex === "string" ? material.dqHex : undefined,
+        qInvHex: typeof material.qInvHex === "string" ? material.qInvHex : undefined,
         publicKeyPem: typeof material.publicKeyPem === "string" ? material.publicKeyPem : "",
         privateKeyPem: typeof material.privateKeyPem === "string" ? material.privateKeyPem : "",
       });

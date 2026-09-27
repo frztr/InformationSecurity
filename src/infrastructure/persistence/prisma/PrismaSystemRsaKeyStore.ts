@@ -1,4 +1,6 @@
+import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
+import { createRsaPrivateKey } from "@/domain/cryptography/rsa/RsaKeyPair";
 import type { RsaKeyStatus, ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
 import { getPrismaClient } from "@/infrastructure/persistence/prisma/PrismaClientSingleton";
 
@@ -36,21 +38,28 @@ export class PrismaSystemRsaKeyStore implements ISystemRsaKeyStore {
       return null;
     }
 
-    const publicKey = {
-      modulus: BigInt(`0x${record.modulusHex}`),
-      publicExponent: BigInt(record.publicExponent),
-      modulusBitLength: record.modulusBitLength,
-    };
+    const modulus = BigInt(`0x${record.modulusHex}`);
+    const publicExponent = BigInt(record.publicExponent);
+    const publicKey = { modulus, publicExponent };
+    const privateExponent = BigInt(`0x${record.privateExponentHex}`);
+    const primeP = BigInt(`0x${record.primePHex}`);
+    const primeQ = BigInt(`0x${record.primeQHex}`);
+    const privateKey =
+      record.dpHex && record.dqHex && record.qInvHex
+        ? {
+            version: 0 as const,
+            modulus,
+            publicExponent,
+            privateExponent,
+            primeP,
+            primeQ,
+            dp: BigInt(`0x${record.dpHex}`),
+            dq: BigInt(`0x${record.dqHex}`),
+            qInv: BigInt(`0x${record.qInvHex}`),
+          }
+        : createRsaPrivateKey(modulus, publicExponent, privateExponent, primeP, primeQ);
 
-    return {
-      publicKey,
-      privateKey: {
-        ...publicKey,
-        privateExponent: BigInt(`0x${record.privateExponentHex}`),
-        primeP: BigInt(`0x${record.primePHex}`),
-        primeQ: BigInt(`0x${record.primeQHex}`),
-      },
-    };
+    return { publicKey, privateKey };
   }
 
   /**
@@ -72,27 +81,24 @@ export class PrismaSystemRsaKeyStore implements ISystemRsaKeyStore {
    * @returns Ничего.
    */
   public async saveKeyPair(keyPair: RsaKeyPair): Promise<void> {
+    const { publicKey, privateKey } = keyPair;
+    const fields = {
+      status: "READY" as const,
+      version: privateKey.version,
+      modulusBitLength: bitLengthOf(publicKey.modulus),
+      modulusHex: publicKey.modulus.toString(16),
+      publicExponent: publicKey.publicExponent.toString(),
+      privateExponentHex: privateKey.privateExponent.toString(16),
+      primePHex: privateKey.primeP.toString(16),
+      primeQHex: privateKey.primeQ.toString(16),
+      dpHex: privateKey.dp.toString(16),
+      dqHex: privateKey.dq.toString(16),
+      qInvHex: privateKey.qInv.toString(16),
+    };
     await getPrismaClient().systemRsaKey.upsert({
       where: { id: "system" },
-      update: {
-        status: "READY",
-        modulusBitLength: keyPair.publicKey.modulusBitLength,
-        modulusHex: keyPair.publicKey.modulus.toString(16),
-        publicExponent: keyPair.publicKey.publicExponent.toString(),
-        privateExponentHex: keyPair.privateKey.privateExponent.toString(16),
-        primePHex: keyPair.privateKey.primeP.toString(16),
-        primeQHex: keyPair.privateKey.primeQ.toString(16),
-      },
-      create: {
-        id: "system",
-        status: "READY",
-        modulusBitLength: keyPair.publicKey.modulusBitLength,
-        modulusHex: keyPair.publicKey.modulus.toString(16),
-        publicExponent: keyPair.publicKey.publicExponent.toString(),
-        privateExponentHex: keyPair.privateKey.privateExponent.toString(16),
-        primePHex: keyPair.privateKey.primeP.toString(16),
-        primeQHex: keyPair.privateKey.primeQ.toString(16),
-      },
+      update: fields,
+      create: { id: "system", ...fields },
     });
   }
 }

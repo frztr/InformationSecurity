@@ -2,6 +2,7 @@ import type { IMessageEncryptionStrategy } from "@/application/messaging/IMessag
 import type { IEncryptionMethodRepository } from "@/domain/access/IEncryptionMethodRepository";
 import type { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import { ENCRYPTION_METHOD_LABELS } from "@/domain/cryptography/EncryptionMethod";
+import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { Streebog512Hasher } from "@/domain/cryptography/gost/Streebog512Hasher";
 import { toHexString } from "@/domain/cryptography/HexEncoding";
 import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
@@ -13,6 +14,7 @@ import type { EncryptedMessageRecord } from "@/domain/messaging/EncryptedMessage
 import type { IEncryptedMessageRepository } from "@/domain/messaging/IEncryptedMessageRepository";
 import {
   fallbackKeyMaterialForMessage,
+  rsaKeyMaterialModulusBitLength,
   type EncryptionKeyMaterial,
 } from "@/domain/messaging/EncryptionKeyMaterial";
 import { fail, ok, type Result } from "@/domain/Result";
@@ -157,7 +159,7 @@ export class MessageService {
       keyDump: keyDumpLines(this.resolveKeyMaterial(message.resultDto, keyPair)),
       streebog512Hex: contentHashHex,
       signatureHex: toHexString(signatureBytes),
-      rsaModulusBitLength: keyPair.publicKey.modulusBitLength,
+      rsaModulusBitLength: bitLengthOf(keyPair.publicKey.modulus),
       signatureValid,
     });
 
@@ -214,7 +216,7 @@ function keyDumpLines(keyMaterial: EncryptionKeyMaterial | null): Array<{ label:
   }
   if (keyMaterial.method === "RSA") {
     return [
-      { label: `RSA public key PEM (${keyMaterial.modulusBitLength} bit)`, value: keyMaterial.publicKeyPem },
+      { label: `RSA public key PEM (${rsaKeyMaterialModulusBitLength(keyMaterial)} bit)`, value: keyMaterial.publicKeyPem },
       { label: "RSA private key PEM (PKCS#1)", value: keyMaterial.privateKeyPem },
     ];
   }
