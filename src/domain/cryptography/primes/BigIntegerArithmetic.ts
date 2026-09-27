@@ -64,26 +64,26 @@ export function greatestCommonDivisor(left: bigint, right: bigint): bigint {
  * @returns value⁻¹ mod modulus.
  */
 export function modularInverse(value: bigint, modulus: bigint): bigint {
-  let previousCoefficient = 0n;
-  let coefficient = 1n;
-  let previousRemainder = modulus;
-  let remainder = ((value % modulus) + modulus) % modulus;
+  let prevPrevXn = 0n;
+  let prevXn = 1n;
+  let prevPrevYn = modulus;
+  let prevYn = ((value % modulus) + modulus) % modulus;
 
-  while (remainder !== 0n) {
-    const quotient = previousRemainder / remainder;
-    const nextCoefficient = previousCoefficient - quotient * coefficient;
-    const nextRemainder = previousRemainder - quotient * remainder;
-    previousCoefficient = coefficient;
-    coefficient = nextCoefficient;
-    previousRemainder = remainder;
-    remainder = nextRemainder;
+  while (prevYn !== 0n) {
+    const prevQ = prevPrevYn / prevYn;
+    const xN = prevPrevXn - prevQ * prevXn;
+    const yN = prevPrevYn - prevQ * prevYn;
+    prevPrevXn = prevXn;
+    prevXn = xN;
+    prevPrevYn = prevYn;
+    prevYn = yN;
   }
 
-  if (previousRemainder !== 1n) {
+  if (prevPrevYn !== 1n) {
     throw new Error("Обратный элемент не существует: числа не взаимно просты.");
   }
 
-  return ((previousCoefficient % modulus) + modulus) % modulus;
+  return ((prevPrevXn % modulus) + modulus) % modulus;
 }
 
 /**
@@ -97,28 +97,27 @@ export function leastCommonMultiple(left: bigint, right: bigint): bigint {
 }
 
 /**
- * CRT-ускорение RSA: c^d mod (p·q) через два возведения по модулям p и q.
- * @param ciphertext Основание c.
- * @param privateExponent Показатель d.
- * @param primeP Простой множитель модуля p.
- * @param primeQ Простой множитель модуля q.
+ * CRT-ускорение RSA(китайская теорема об остатках): c^d mod (p·q) через два возведения по модулям p и q.
+ * @param message Основание c. Шифруемое сообщение.
+ * @param d Показатель d. Секретная экспонента.
+ * @param p Простой множитель модуля p.
+ * @param q Простой множитель модуля q.
  * @returns c^d mod (p·q).
  */
 export function rsaCrtModularPower(
-  ciphertext: bigint,
-  privateExponent: bigint,
-  primeP: bigint,
-  primeQ: bigint,
+  message: bigint,
+  d: bigint,
+  p: bigint,
+  q: bigint,
 ): bigint {
-  if (primeP === primeQ || primeP <= 1n || primeQ <= 1n) {
+  if (p === q || p <= 1n || q <= 1n) {
     throw new Error("Для CRT нужны два различных простых p и q.");
   }
 
-  const dp = privateExponent % (primeP - 1n);
-  const dq = privateExponent % (primeQ - 1n);
-  const qInverseModP = modularInverse(primeQ, primeP);
-  const messageModP = modularPower(ciphertext % primeP, dp, primeP);
-  const messageModQ = modularPower(ciphertext % primeQ, dq, primeQ);
-  const h = (qInverseModP * ((messageModP - messageModQ) % primeP + primeP)) % primeP;
-  return messageModQ + h * primeQ;
+  const dp = d % (p - 1n);
+  const dq = d % (q - 1n);
+  const a2 = modularPower(message % p, dp, p);
+  const x1 = modularPower(message % q, dq, q);
+  const x2 = (((a2 - x1) % p + p) * modularInverse(q, p)) % p;
+  return x1 + x2 * q;
 }
