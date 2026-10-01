@@ -1,4 +1,4 @@
-import { PI_INVERSE_SUBSTITUTION, PI_SUBSTITUTION } from "@/domain/cryptography/gost/PiSubstitution";
+import { PI_INVERSE_TABLE, PI_TABLE } from "@/domain/cryptography/gost/PiSubstitution";
 
 const BLOCK_SIZE_BYTES = 16;
 const ROUND_KEY_COUNT = 10;
@@ -120,7 +120,7 @@ export class KuznyechikCipher {
   private applySubstitution(block: Uint8Array): Uint8Array {
     const substituted = new Uint8Array(BLOCK_SIZE_BYTES);
     for (let index = 0; index < BLOCK_SIZE_BYTES; index += 1) {
-      substituted[index] = PI_SUBSTITUTION[block[index]];
+      substituted[index] = PI_TABLE[block[index]];
     }
     return substituted;
   }
@@ -132,7 +132,7 @@ export class KuznyechikCipher {
   private applyInverseSubstitution(block: Uint8Array): Uint8Array {
     const substituted = new Uint8Array(BLOCK_SIZE_BYTES);
     for (let index = 0; index < BLOCK_SIZE_BYTES; index += 1) {
-      substituted[index] = PI_INVERSE_SUBSTITUTION[block[index]];
+      substituted[index] = PI_INVERSE_TABLE[block[index]];
     }
     return substituted;
   }
@@ -317,7 +317,7 @@ export class KuznyechikCipher {
     public applySubstitution(block: Uint8Array): Uint8Array {
       const substituted = new Uint8Array(BLOCK_SIZE_BYTES);
       for (let index = 0; index < BLOCK_SIZE_BYTES; index += 1) {
-        substituted[index] = PI_SUBSTITUTION[block[index]];
+        substituted[index] = PI_TABLE[block[index]];
       }
       return substituted;
     }

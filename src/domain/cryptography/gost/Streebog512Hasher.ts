@@ -1,68 +1,65 @@
-import { PI_SUBSTITUTION } from "@/domain/cryptography/gost/PiSubstitution";
+import { PI_TABLE } from "@/domain/cryptography/gost/PiSubstitution";
 import {
-  STREEBOG_BYTE_PERMUTATION_TAU,
-  STREEBOG_LINEAR_MATRIX_ROWS,
+  STREEBOG_LINEAR_MATRIX_TABLE,
   STREEBOG_ROUND_CONSTANTS,
+  STREEBOG_TAU_TABLE,
 } from "@/domain/cryptography/gost/StreebogConstants";
 
 const BLOCK_SIZE_BYTES = 64;
 const ROUND_COUNT = 12;
 
 /**
- * Хэш-функция Стрибог-512 (ГОСТ Р 34.11-2012 / RFC 6986).
- * Байты хранятся в порядке RFC: индекс 0 — старший байт 512-битного вектора.
+ * Раундовые константы в нумерации ГОСТ: индекс 0 — младший байт.
+ * В таблице стандарта слева стоит старший байт, поэтому блок разворачивается.
+ */
+const ROUND_CONSTANTS = STREEBOG_ROUND_CONSTANTS.map(reverseBlock);
+
+/**
+ * Хэш-функция Стрибог-512 (ГОСТ Р 34.11-2012).
+ * Внутри 512-битный вектор хранится как в ГОСТ: индекс 0 — младший байт.
+ * Методы hashBytes и hashToHex отдают дайджест в обычной записи: индекс 0 — старший байт.
  */
 export class Streebog512Hasher {
   /**
    * Хэширует произвольные байты по ГОСТ Р 34.11-2012 (Стрибог-512).
-   * @param message Входное сообщение.
-   * @returns 64-байтный дайджест в порядке RFC (индекс 0 — старший байт).
+   * @param message Входное сообщение, первый байт — старший.
+   * @returns 64-байтный дайджест, индекс 0 — старший байт.
    */
   public hashBytes(message: Uint8Array): Uint8Array {
-    let chainingValue: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
-    let bitLengthCounter: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
+    let currentHash: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
+    let bitLength: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
     let checksum: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
 
     let remaining: Uint8Array<ArrayBufferLike> = message;
 
     while (remaining.length >= BLOCK_SIZE_BYTES) {
-      const messageBlock = remaining.subarray(remaining.length - BLOCK_SIZE_BYTES);
+      const messageBlock = toGostBlock(remaining.subarray(remaining.length - BLOCK_SIZE_BYTES));
       remaining = remaining.subarray(0, remaining.length - BLOCK_SIZE_BYTES);
-      chainingValue = this.compress(chainingValue, messageBlock, bitLengthCounter);
-      bitLengthCounter = this.addInteger(bitLengthCounter, 512n);
+      currentHash = this.compress(currentHash, messageBlock, bitLength);
+      bitLength = this.addInteger(bitLength, 512n);
       checksum = this.addInteger(checksum, this.bytesToInteger(messageBlock));
     }
 
-    const paddedBlock = new Uint8Array(BLOCK_SIZE_BYTES);
-    paddedBlock.set(remaining, BLOCK_SIZE_BYTES - remaining.length);
+    const paddedBlock = toGostBlock(remaining);
     if (remaining.length < BLOCK_SIZE_BYTES) {
-      paddedBlock[BLOCK_SIZE_BYTES - remaining.length - 1] = 0x01;
+      paddedBlock[remaining.length] = 0x01;
     }
 
-    chainingValue = this.compress(chainingValue, paddedBlock, bitLengthCounter);
-    bitLengthCounter = this.addInteger(bitLengthCounter, BigInt(remaining.length * 8));
+    currentHash = this.compress(currentHash, paddedBlock, bitLength);
+    bitLength = this.addInteger(bitLength, BigInt(remaining.length * 8));
     checksum = this.addInteger(checksum, this.bytesToInteger(paddedBlock));
 
     const zeroVector = new Uint8Array(BLOCK_SIZE_BYTES);
-    chainingValue = this.compress(chainingValue, bitLengthCounter, zeroVector);
-    chainingValue = this.compress(chainingValue, checksum, zeroVector);
+    currentHash = this.compress(currentHash, bitLength, zeroVector);
+    currentHash = this.compress(currentHash, checksum, zeroVector);
 
-    return chainingValue;
-  }
-
-  /**
-   * Хэширует UTF-8 представление строки.
-   * @param text Исходный текст.
-   * @returns 64-байтный дайджест.
-   */
-  public hashUtf8(text: string): Uint8Array {
-    return this.hashBytes(new TextEncoder().encode(text));
+    return reverseBlock(currentHash);
   }
 
   /**
    * Хэширует UTF-8 представление строки и возвращает шестнадцатеричную запись.
    * @param text Исходный текст.
-   * @returns 128 символов hex-дайджеста.
+   * @returns 128 символов hex, слева старший байт.
    */
   public hashUtf8ToHex(text: string): string {
     return this.hashToHex(new TextEncoder().encode(text));
@@ -71,7 +68,7 @@ export class Streebog512Hasher {
   /**
    * Хэширует байты и возвращает шестнадцатеричную запись дайджеста.
    * @param message Входное сообщение.
-   * @returns 128 символов hex-дайджеста.
+   * @returns 128 символов hex, слева старший байт.
    */
   public hashToHex(message: Uint8Array): string {
     return Array.from(this.hashBytes(message), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -79,15 +76,15 @@ export class Streebog512Hasher {
 
   /**
    * Функция сжатия g_N(h, m) стандарта.
-   * @param chainingValue Текущее значение хэширования h.
+   * @param currentHash Текущее значение хэширования h.
    * @param messageBlock Блок сообщения m.
-   * @param lengthVector Вектор N (накопленная длина в битах).
+   * @param bitLength Вектор N (накопленная длина в битах).
    * @returns Новое значение хэширования.
    */
-  private compress(chainingValue: Uint8Array, messageBlock: Uint8Array, lengthVector: Uint8Array): Uint8Array {
-    const key = this.applyLps(this.exclusiveOr(chainingValue, lengthVector));
+  private compress(currentHash: Uint8Array, messageBlock: Uint8Array, bitLength: Uint8Array): Uint8Array {
+    const key = this.applyLps(this.XTransform(currentHash, bitLength));
     const encrypted = this.encrypt(key, messageBlock);
-    return this.exclusiveOr(this.exclusiveOr(encrypted, chainingValue), messageBlock);
+    return this.XTransform(this.XTransform(encrypted, currentHash), messageBlock);
   }
 
   /**
@@ -98,11 +95,11 @@ export class Streebog512Hasher {
    */
   private encrypt(initialKey: Uint8Array, messageBlock: Uint8Array): Uint8Array {
     let key: Uint8Array<ArrayBufferLike> = new Uint8Array(initialKey);
-    let state: Uint8Array<ArrayBufferLike> = this.exclusiveOr(messageBlock, key);
+    let state: Uint8Array<ArrayBufferLike> = this.XTransform(messageBlock, key);
 
     for (let roundIndex = 0; roundIndex < ROUND_COUNT; roundIndex += 1) {
-      key = this.applyLps(this.exclusiveOr(key, STREEBOG_ROUND_CONSTANTS[roundIndex]));
-      state = this.exclusiveOr(this.applyLps(state), key);
+      key = this.applyLps(this.XTransform(key, ROUND_CONSTANTS[roundIndex]));
+      state = this.XTransform(this.applyLps(state), key);
     }
 
     return state;
@@ -114,70 +111,48 @@ export class Streebog512Hasher {
    * @returns Преобразованный блок.
    */
   private applyLps(block: Uint8Array): Uint8Array {
-    return this.applyLinear(this.applyPermutation(this.applySubstitution(block)));
+    return this.LTransform(this.PTransform(this.STransform(block)));
   }
 
   /**
    * Применяет нелинейную подстановку π к 64-байтному блоку Стрибог.
    * @param block Входной блок.
    */
-  private applySubstitution(block: Uint8Array): Uint8Array {
-    const substituted = new Uint8Array(BLOCK_SIZE_BYTES);
-    for (let index = 0; index < BLOCK_SIZE_BYTES; index += 1) {
-      substituted[index] = PI_SUBSTITUTION[block[index]];
-    }
-    return substituted;
+  private STransform(block: Uint8Array): Uint8Array {
+    return Uint8Array.from(block, (byte) => PI_TABLE[byte]);
   }
 
   /**
-   * Применяет байтовую перестановку τ.
-   * @param block Входной блок.
+   * Перестановка P: result[i] = state[τ[i]]. Индекс 0 — младший байт.
+   * @param state Входной блок.
    */
-  private applyPermutation(block: Uint8Array): Uint8Array {
-    const permuted = new Uint8Array(BLOCK_SIZE_BYTES);
-    for (let outputIndex = 0; outputIndex < BLOCK_SIZE_BYTES; outputIndex += 1) {
-      const tauIndex = 63 - outputIndex;
-      const sourceIndex = 63 - STREEBOG_BYTE_PERMUTATION_TAU[tauIndex];
-      permuted[outputIndex] = block[sourceIndex];
-    }
-    return permuted;
+  private PTransform(state: Uint8Array): Uint8Array {
+    return Uint8Array.from(STREEBOG_TAU_TABLE, (sourceIndex) => state[sourceIndex]);
   }
 
   /**
-   * Применяет линейное преобразование L к восьми 64-битным словам блока.
-   * @param block 64-байтный блок.
+   * Линейное преобразование L. Блок разбит на восемь слов по 8 байт, индекс 0 слова — младший байт.
+   * Массив битов строится как BitArray: младший бит первого байта получает индекс 0, затем биты разворачиваются,
+   * чтобы индекс 0 совпал со строкой 0 матрицы A. Установленный бит складывает эту строку с суммой по модулю 2.
+   * @param state 64-байтный блок.
    */
-  private applyLinear(block: Uint8Array): Uint8Array {
-    const transformed = new Uint8Array(BLOCK_SIZE_BYTES);
+  private LTransform(state: Uint8Array): Uint8Array {
+    const result = new Uint8Array(BLOCK_SIZE_BYTES);
     for (let wordIndex = 0; wordIndex < 8; wordIndex += 1) {
-      const word = block.subarray(wordIndex * 8, wordIndex * 8 + 8);
-      transformed.set(this.applyLinear64(word), wordIndex * 8);
-    }
-    return transformed;
-  }
+      const word = state.slice(wordIndex * 8, wordIndex * 8 + 8);
+      const bits = toBitArray(word);
+      bits.reverse();
 
-  /**
-   * Линейное преобразование одного 64-битного слова матрицей стандарта.
-   * @param word Восемь байт слова.
-   */
-  private applyLinear64(word: Uint8Array): Uint8Array {
-    let result = 0n;
-    let matrixRowIndex = 0;
-    for (let byteIndex = 0; byteIndex < 8; byteIndex += 1) {
-      for (let bitIndex = 7; bitIndex >= 0; bitIndex -= 1) {
-        if (((word[byteIndex] >> bitIndex) & 1) !== 0) {
-          result ^= STREEBOG_LINEAR_MATRIX_ROWS[matrixRowIndex];
+      let value = 0n;
+      for (let bitIndex = 0; bitIndex < 64; bitIndex += 1) {
+        if (bits[bitIndex]) {
+          value ^= STREEBOG_LINEAR_MATRIX_TABLE[bitIndex];
         }
-        matrixRowIndex += 1;
       }
-    }
 
-    const resultBytes = new Uint8Array(8);
-    for (let byteIndex = 0; byteIndex < 8; byteIndex += 1) {
-      const shift = BigInt((7 - byteIndex) * 8);
-      resultBytes[byteIndex] = Number((result >> shift) & 0xffn);
+      result.set(toLittleEndianBytes(value), wordIndex * 8);
     }
-    return resultBytes;
+    return result;
   }
 
   /**
@@ -185,40 +160,66 @@ export class Streebog512Hasher {
    * @param left Левый операнд.
    * @param right Правый операнд.
    */
-  private exclusiveOr(left: Uint8Array, right: Uint8Array): Uint8Array {
-    const result = new Uint8Array(left.length);
-    for (let index = 0; index < left.length; index += 1) {
-      result[index] = left[index] ^ right[index];
-    }
-    return result;
+  private XTransform(left: Uint8Array, right: Uint8Array): Uint8Array {
+    return Uint8Array.from(left, (byte, index) => byte ^ right[index]);
   }
 
   /**
-   * Читает байты как целое big-endian.
-   * @param bytes Исходные байты.
+   * Читает блок как целое: индекс 0 — младший байт.
+   * @param bytes 64 байта в нумерации ГОСТ.
    */
   private bytesToInteger(bytes: Uint8Array): bigint {
-    let value = 0n;
-    for (const byte of bytes) {
-      value = (value << 8n) | BigInt(byte);
-    }
-    return value;
+    return bytes.reduce((value, byte, index) => value | (BigInt(byte) << BigInt(index * 8)), 0n);
   }
 
   /**
    * Складывает 512-битный вектор с целым по модулю 2⁵¹².
-   * @param left 64-байтный вектор.
+   * @param left 64-байтный вектор, индекс 0 — младший байт.
    * @param right Слагаемое.
    */
   private addInteger(left: Uint8Array, right: bigint): Uint8Array {
     const modulus = 1n << 512n;
     const sum = (this.bytesToInteger(left) + (right % modulus)) % modulus;
-    const result = new Uint8Array(BLOCK_SIZE_BYTES);
-    let remaining = sum;
-    for (let index = BLOCK_SIZE_BYTES - 1; index >= 0; index -= 1) {
-      result[index] = Number(remaining & 0xffn);
-      remaining >>= 8n;
-    }
-    return result;
+    return Uint8Array.from({ length: BLOCK_SIZE_BYTES }, (_, index) => Number((sum >> BigInt(index * 8)) & 0xffn));
   }
+}
+
+/**
+ * Кладёт байты сообщения в блок ГОСТ: последний байт сообщения — младший (индекс 0).
+ * @param messageBytes Хвост сообщения, первый байт — старший.
+ */
+function toGostBlock(messageBytes: Uint8Array): Uint8Array {
+  const block = new Uint8Array(BLOCK_SIZE_BYTES);
+  block.set(new Uint8Array(messageBytes).reverse());
+  return block;
+}
+
+/**
+ * Разворачивает 64-байтный блок: младший байт меняется местами со старшим.
+ * @param block Блок из 64 байт.
+ */
+function reverseBlock(block: Uint8Array): Uint8Array {
+  return new Uint8Array(block).reverse();
+}
+
+/**
+ * Массив битов в порядке BitArray: младший бит первого байта — индекс 0.
+ * @param bytes Байты слова.
+ */
+function toBitArray(bytes: Uint8Array): boolean[] {
+  const bits: boolean[] = [];
+  for (const byte of bytes) {
+    for (let bitIndex = 0; bitIndex < 8; bitIndex += 1) {
+      bits.push(((byte >> bitIndex) & 1) === 1);
+    }
+  }
+  return bits;
+}
+
+/**
+ * Восемь младших байт целого. Индекс 0 — младший байт, как у BitConverter.GetBytes.
+ * @param value 64-битное значение.
+ */
+function toLittleEndianBytes(value: bigint): Uint8Array {
+  return Uint8Array.from({ length: 8 }, (_, byteIndex) => Number((value >> BigInt(byteIndex * 8)) & 0xffn));
 }

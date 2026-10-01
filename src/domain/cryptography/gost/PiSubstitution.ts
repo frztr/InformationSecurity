@@ -2,7 +2,7 @@
  * Нелинейная биекция π из ГОСТ Р 34.12-2015 (Кузнечик) и ГОСТ Р 34.11-2012 (Стрибог).
  * Таблица совпадает в обоих стандартах.
  */
-export const PI_SUBSTITUTION: readonly number[] = [
+export const PI_TABLE: readonly number[] = [
   252, 238, 221, 17, 207, 110, 49, 22, 251, 196, 250, 218, 35, 197, 4, 77, 233, 119, 240, 219, 147, 46, 153, 186, 23,
   54, 241, 187, 20, 205, 95, 193, 249, 24, 101, 90, 226, 92, 239, 33, 129, 28, 60, 66, 139, 1, 142, 79, 5, 132, 2, 174,
   227, 106, 143, 160, 6, 11, 237, 152, 127, 212, 211, 31, 235, 52, 44, 81, 234, 200, 72, 171, 242, 42, 104, 162, 253, 58,
@@ -15,11 +15,11 @@ export const PI_SUBSTITUTION: readonly number[] = [
   190, 229, 108, 82, 89, 166, 116, 210, 230, 244, 180, 192, 209, 102, 175, 194, 57, 75, 99, 182,
 ];
 
-/** Обратная подстановка π⁻¹: π⁻¹[π[x]] = x. */
-export const PI_INVERSE_SUBSTITUTION: readonly number[] = (() => {
+/** Обратная таблица π⁻¹: π⁻¹[π[x]] = x. */
+export const PI_INVERSE_TABLE: readonly number[] = (() => {
   const inverse: number[] = new Array<number>(256);
   for (let inputByte = 0; inputByte < 256; inputByte += 1) {
-    inverse[PI_SUBSTITUTION[inputByte]] = inputByte;
+    inverse[PI_TABLE[inputByte]] = inputByte;
   }
   return inverse;
 })();

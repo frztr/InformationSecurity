@@ -2,7 +2,7 @@
  * Константы линейного преобразования и раундовые константы Стрибога (RFC 6986).
  * Индекс 0 матрицы A соответствует старшему биту 64-битного слова.
  */
-export const STREEBOG_LINEAR_MATRIX_ROWS: readonly bigint[] = [
+export const STREEBOG_LINEAR_MATRIX_TABLE: readonly bigint[] = [
   0x8e20faa72ba0b470n, 0x47107ddd9b505a38n, 0xad08b0e0c3282d1cn, 0xd8045870ef14980en, 0x6c022c38f90a4c07n,
   0x3601161cf205268dn, 0x1b8e0b0e798c13c8n, 0x83478b07b2468764n, 0xa011d380818e8f40n, 0x5086e740ce47c920n,
   0x2843fd2067adea10n, 0x14aff010bdd87508n, 0x0ad97808d06cb404n, 0x05e23c0468365a02n, 0x8c711e02341b2d01n,
@@ -18,8 +18,8 @@ export const STREEBOG_LINEAR_MATRIX_ROWS: readonly bigint[] = [
   0x07e095624504536cn, 0x8d70c431ac02a736n, 0xc83862965601dd1bn, 0x641c314b2b8ee083n,
 ];
 
-/** Перестановка байт τ линейного преобразования LPS Стрибога. */
-export const STREEBOG_BYTE_PERMUTATION_TAU: readonly number[] = [
+/** Таблица перестановки байт τ преобразования LPS Стрибога. */
+export const STREEBOG_TAU_TABLE: readonly number[] = [
   0, 8, 16, 24, 32, 40, 48, 56, 1, 9, 17, 25, 33, 41, 49, 57, 2, 10, 18, 26, 34, 42, 50, 58, 3, 11, 19, 27, 35, 43, 51,
   59, 4, 12, 20, 28, 36, 44, 52, 60, 5, 13, 21, 29, 37, 45, 53, 61, 6, 14, 22, 30, 38, 46, 54, 62, 7, 15, 23, 31, 39, 47,
   55, 63,
@@ -34,7 +34,10 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
-/** Раундовые константы C_1 … C_12 преобразования E (RFC 6986). */
+/**
+ * Раундовые константы C_1 … C_12 преобразования E.
+ * В шестнадцатеричной записи слева старший байт; хэшер разворачивает блок в нумерацию ГОСТ.
+ */
 export const STREEBOG_ROUND_CONSTANTS: readonly Uint8Array[] = [
   hexToBytes(`
     b1085bda1ecadae9ebcb2f81c0657c1f
