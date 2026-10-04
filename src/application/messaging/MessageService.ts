@@ -6,12 +6,12 @@ import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { Streebog512Hasher } from "@/domain/cryptography/gost/Streebog512Hasher";
 import { toHexString } from "@/domain/cryptography/HexEncoding";
 import type { RsaStreebogDigitalSignature } from "@/domain/cryptography/rsa/RsaStreebogDigitalSignature";
-import type { ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
+import type { RsaKeyPairIssuer } from "@/domain/cryptography/rsa/RsaKeyPairIssuer";
 import type { UserAccount } from "@/domain/identity/UserAccount";
 import { UserRole } from "@/domain/identity/UserRole";
 import type { EncryptedMessageRecord } from "@/domain/messaging/EncryptedMessageRecord";
 import type { IEncryptedMessageRepository } from "@/domain/messaging/IEncryptedMessageRepository";
-import { rsaKeyMaterialModulusBitLength, type EncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
+import { rsaEncryptionKeyMaterial, rsaKeyMaterialModulusBitLength, type EncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
 import { fail, ok, type Result } from "@/domain/Result";
 import { SignedPdfDocumentFactory } from "@/infrastructure/pdf/SignedPdfDocumentFactory";
 
@@ -23,7 +23,7 @@ export class MessageService {
     private readonly encryptedMessageRepository: IEncryptedMessageRepository,
     private readonly encryptionMethodRepository: IEncryptionMethodRepository,
     private readonly encryptionStrategies: Record<EncryptionMethod, IMessageEncryptionStrategy>,
-    private readonly systemRsaKeyStore: ISystemRsaKeyStore,
+    private readonly rsaKeyPairIssuer: RsaKeyPairIssuer,
     private readonly digitalSignature: RsaStreebogDigitalSignature,
     private readonly pdfDocumentFactory: SignedPdfDocumentFactory,
   ) {}
@@ -131,10 +131,11 @@ export class MessageService {
       return fail("Ключ этого сообщения не сохранён.");
     }
 
-    const keyPair = await this.systemRsaKeyStore.tryGetKeyPair();
-    if (!keyPair) {
-      return fail("Подпись PDF невозможна: ключи RSA ещё не готовы.");
+    const signingKey = await this.rsaKeyPairIssuer.takeFreshKeyPair();
+    if (signingKey.isError) {
+      return signingKey;
     }
+    const keyPair = signingKey.resultDto;
 
     const hasher = new Streebog512Hasher();
     const payloadForSignature = new TextEncoder().encode(
@@ -152,6 +153,7 @@ export class MessageService {
       plaintext: message.resultDto.plaintext,
       ciphertextHex: message.resultDto.ciphertextHex,
       keyDump: keyDumpLines(keyMaterial),
+      signatureKeyDump: keyDumpLines(rsaEncryptionKeyMaterial(keyPair)),
       streebog512Hex: contentHashHex,
       signatureHex: toHexString(signatureBytes),
       rsaModulusBitLength: bitLengthOf(keyPair.publicKey.modulus),

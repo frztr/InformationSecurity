@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/infrastructure/http/AuthenticationMiddleware";
 export const dynamic = "force-dynamic";
 
 /**
- * Публичная главная: обзор системы, роли, методы шифрования и статус ключей RSA.
+ * Публичная главная: обзор системы, роли, методы шифрования и пул простых RSA.
  */
 export default async function HomePage() {
   const { administrationService, systemService } = await getReadyServices();
@@ -82,17 +82,16 @@ export default async function HomePage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Ключи RSA</CardTitle>
-            <CardDescription>Сборка из простых Kafka, не внутри веб-приложения</CardDescription>
+            <CardTitle>Пул простых RSA</CardTitle>
+            <CardDescription>Каждый ключ шифрования и каждая подпись PDF собираются из новой пары</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>Статус: {status.rsa.status === "READY" ? "готовы" : "ожидают простые из Kafka"}</p>
             <p>Длина модуля: {status.rsa.modulusBitLength} бит</p>
             <p>
-              Накоплено {status.kafka.collectedPrimeCount} простых по {status.kafka.expectedPrimeBitLength} бит (нужны минимум два
-              подходящих).
+              Накоплено {status.kafka.collectedPrimeCount} простых по {status.kafka.expectedPrimeBitLength} бит. На один ключ
+              нужны два.
             </p>
-            <p>Пока ключи не готовы, доступен «Кузнечик».</p>
+            <p>Пока в пуле меньше двух простых, доступен только «Кузнечик».</p>
           </CardContent>
         </Card>
       </div>

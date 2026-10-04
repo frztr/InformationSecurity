@@ -1,12 +1,11 @@
 import type { ICollectedPrimeNumberRepository } from "@/domain/cryptography/primes/ICollectedPrimeNumberRepository";
-import type { RsaKeyStatus, ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
 import type { ApplicationSettings } from "@/infrastructure/config/loadApplicationConfiguration";
 
 /**
  * Сводка состояния RSA, Kafka и почты.
  */
 export type SystemStatus = {
-  rsa: { status: RsaKeyStatus; modulusBitLength: number };
+  rsa: { modulusBitLength: number };
   kafka: {
     brokers: string[];
     topic: string;
@@ -25,25 +24,20 @@ export type SystemStatus = {
  */
 export class SystemService {
   public constructor(
-    private readonly systemRsaKeyStore: ISystemRsaKeyStore,
     private readonly collectedPrimeNumberRepository: ICollectedPrimeNumberRepository,
     private readonly settings: ApplicationSettings,
   ) {}
 
   /**
-   * Собирает статус ключей RSA, число простых из Kafka и адреса почты.
+   * Собирает длину модуля RSA, число простых из Kafka и адреса почты.
    */
   public async getSystemStatus(): Promise<SystemStatus> {
-    const rsa = await this.systemRsaKeyStore.getStatus();
     const modulusBitLength = this.settings.rsa.modulusBitLength;
     const expectedPrimeBitLength = modulusBitLength / 2;
     const collectedPrimeCount = await this.collectedPrimeNumberRepository.countByBitLength(expectedPrimeBitLength);
 
     return {
-      rsa: {
-        status: rsa.status,
-        modulusBitLength: rsa.modulusBitLength || modulusBitLength,
-      },
+      rsa: { modulusBitLength },
       kafka: {
         brokers: this.settings.kafka.brokers,
         topic: this.settings.kafka.topic,

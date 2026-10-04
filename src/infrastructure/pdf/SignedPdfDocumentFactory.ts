@@ -14,6 +14,7 @@ export type SignedPdfContent = {
   plaintext: string;
   ciphertextHex: string;
   keyDump: Array<{ label: string; value: string }>;
+  signatureKeyDump: Array<{ label: string; value: string }>;
   streebog512Hex: string;
   signatureHex: string;
   rsaModulusBitLength: number;
@@ -85,6 +86,12 @@ export class SignedPdfDocumentFactory {
     writeLine("");
     writeLine("--- Ключи шифрования ---");
     for (const field of content.keyDump) {
+      writeLine(field.label);
+      writeBlock(field.value, 64);
+      writeLine("");
+    }
+    writeLine("--- Ключи подписи ---");
+    for (const field of content.signatureKeyDump) {
       writeLine(field.label);
       writeBlock(field.value, 64);
       writeLine("");

@@ -9,9 +9,9 @@ import { RsaMessageEncryptionStrategy } from "@/application/messaging/RsaMessage
 import { KuznyechikMessageEncryptionStrategy } from "@/application/messaging/KuznyechikMessageEncryptionStrategy";
 import { SystemService } from "@/application/system/SystemService";
 import { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
-import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { CryptographicRandomIntegerSource } from "@/domain/cryptography/primes/CryptographicRandomIntegerSource";
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
+import { RsaKeyPairIssuer } from "@/domain/cryptography/rsa/RsaKeyPairIssuer";
 import { RsaStreebogDigitalSignature } from "@/domain/cryptography/rsa/RsaStreebogDigitalSignature";
 import { TotpOneTimePasswordService } from "@/domain/identity/TotpOneTimePasswordService";
 import {
@@ -25,7 +25,7 @@ import {
   markAdminEnrollmentMailSent,
   readOrCreateAdminEnrollment,
 } from "@/infrastructure/identity/AdminEnrollmentPublicationStore";
-import { KafkaRsaKeyAssembler } from "@/infrastructure/kafka/KafkaRsaKeyAssembler";
+import { KafkaPrimeNumberConsumer } from "@/infrastructure/kafka/KafkaPrimeNumberConsumer";
 import { SmtpMailGateway } from "@/infrastructure/mail/SmtpMailGateway";
 import { SignedPdfDocumentFactory } from "@/infrastructure/pdf/SignedPdfDocumentFactory";
 import { PrismaCollectedPrimeNumberRepository } from "@/infrastructure/persistence/prisma/PrismaCollectedPrimeNumberRepository";
@@ -37,7 +37,6 @@ import { PrismaPendingLoginRepository } from "@/infrastructure/persistence/prism
 import { getPrismaClient } from "@/infrastructure/persistence/prisma/PrismaClientSingleton";
 import { PrismaRecoveryCodeRepository } from "@/infrastructure/persistence/prisma/PrismaRecoveryCodeRepository";
 import { PrismaSessionRepository } from "@/infrastructure/persistence/prisma/PrismaSessionRepository";
-import { PrismaSystemRsaKeyStore } from "@/infrastructure/persistence/prisma/PrismaSystemRsaKeyStore";
 import { PrismaUserAccountRepository } from "@/infrastructure/persistence/prisma/PrismaUserAccountRepository";
 
 /**
@@ -55,7 +54,7 @@ export type ApplicationServices = {
 };
 
 let servicesInstance: ApplicationServices | null = null;
-let kafkaRsaAssemblerStarted = false;
+let kafkaPrimeConsumerStarted = false;
 let mailGatewayInstance: SmtpMailGateway | null = null;
 
 /**
@@ -79,8 +78,13 @@ function getServices(): ApplicationServices {
   const sessionRepository = new PrismaSessionRepository();
   const encryptedMessageRepository = new PrismaEncryptedMessageRepository();
   const encryptionMethodRepository = new PrismaEncryptionMethodRepository();
-  const systemRsaKeyStore = new PrismaSystemRsaKeyStore();
   const collectedPrimeNumberRepository = new PrismaCollectedPrimeNumberRepository();
+  const rsaKeyPairIssuer = new RsaKeyPairIssuer(
+    collectedPrimeNumberRepository,
+    new RsaKeyPairAssembler(),
+    BigInt(settings.rsa.publicExponent),
+    settings.rsa.modulusBitLength,
+  );
   const passwordHasher = new StreebogPasswordHasher(randomIntegerSource);
   const mailGateway = new SmtpMailGateway({
     host: settings.smtp.host,
@@ -131,16 +135,10 @@ function getServices(): ApplicationServices {
       encryptedMessageRepository,
       encryptionMethodRepository,
       {
-        [EncryptionMethod.RSA]: new RsaMessageEncryptionStrategy(
-          collectedPrimeNumberRepository,
-          new RsaKeyPairAssembler(),
-          BigInt(settings.rsa.publicExponent),
-          settings.rsa.modulusBitLength,
-          randomIntegerSource,
-        ),
+        [EncryptionMethod.RSA]: new RsaMessageEncryptionStrategy(rsaKeyPairIssuer, randomIntegerSource),
         [EncryptionMethod.KUZNYECHIK]: new KuznyechikMessageEncryptionStrategy(randomIntegerSource),
       },
-      systemRsaKeyStore,
+      rsaKeyPairIssuer,
       new RsaStreebogDigitalSignature(),
       new SignedPdfDocumentFactory(),
     ),
@@ -153,11 +151,7 @@ function getServices(): ApplicationServices {
       settings.auth.totpIssuer,
       settings.auth.recoveryCodeCount,
     ),
-    systemService: new SystemService(
-      systemRsaKeyStore,
-      collectedPrimeNumberRepository,
-      settings,
-    ),
+    systemService: new SystemService(collectedPrimeNumberRepository, settings),
   };
 
   return servicesInstance;
@@ -206,7 +200,7 @@ async function publishDefaultAdminEnrollment(services: ApplicationServices): Pro
 }
 
 /**
- * Подключает БД, обеспечивает методы шифрования и администратора по умолчанию; при несовпадении длины модуля RSA запускает сборку ключа из Kafka.
+ * Подключает БД, обеспечивает методы шифрования и администратора по умолчанию и запускает приём простых из Kafka.
  * На фазе production-сборки Next.js ничего не делает.
  * @returns Ничего.
  */
@@ -224,12 +218,10 @@ export async function initializeApplication(): Promise<void> {
     console.info("Пароль администратора перехеширован Стрибог-512.");
   }
 
-  const keyStore = new PrismaSystemRsaKeyStore();
-  const keyPair = await keyStore.tryGetKeyPair();
-  const { rsa, kafka } = services.applicationSettings;
-  if ((!keyPair || bitLengthOf(keyPair.publicKey.modulus) !== rsa.modulusBitLength) && !kafkaRsaAssemblerStarted) {
-    kafkaRsaAssemblerStarted = true;
-    const assembler = new KafkaRsaKeyAssembler(
+  const { kafka, rsa } = services.applicationSettings;
+  if (!kafkaPrimeConsumerStarted) {
+    kafkaPrimeConsumerStarted = true;
+    const consumer = new KafkaPrimeNumberConsumer(
       {
         brokers: kafka.brokers,
         topic: kafka.topic,
@@ -237,13 +229,10 @@ export async function initializeApplication(): Promise<void> {
         groupId: kafka.groupId,
       },
       new PrismaCollectedPrimeNumberRepository(),
-      keyStore,
-      new RsaKeyPairAssembler(),
-      BigInt(rsa.publicExponent),
       rsa.modulusBitLength,
     );
-    void assembler.start().catch((error: unknown) => {
-      console.error("Не удалось запустить сборку RSA из Kafka:", error);
+    void consumer.start().catch((error: unknown) => {
+      console.error("Не удалось запустить приём простых из Kafka:", error);
     });
   }
 }

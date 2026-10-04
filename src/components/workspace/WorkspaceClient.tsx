@@ -26,7 +26,7 @@ type WorkspaceClientProps = {
  * @param props.actorLogin Логин текущего пользователя.
  * @param props.methods Список методов шифрования и их доступность.
  * @param props.messages Начальный журнал сообщений.
- * @param props.rsaReady Признак готовности ключей RSA.
+ * @param props.rsaReady В пуле хватает простых на новую пару RSA.
  */
 export function WorkspaceClient({ actorLogin, methods, messages, rsaReady }: WorkspaceClientProps) {
   const [plaintext, setPlaintext] = useState("");
@@ -58,7 +58,7 @@ export function WorkspaceClient({ actorLogin, methods, messages, rsaReady }: Wor
       <div>
         <h1 className="text-2xl font-semibold">Рабочий стол</h1>
         <p className="text-sm text-muted-foreground">
-          Пользователь {actorLogin}. RSA-32768 {rsaReady ? "готова (ключи собраны из Kafka)" : "ожидает 16384-битные простые из Kafka"}.
+          Пользователь {actorLogin}. RSA-32768 {rsaReady ? "доступна: в пуле есть два простых" : "ожидает ещё два простых из Kafka"}.
         </p>
       </div>
       <Card aria-busy={encrypting.pending}>

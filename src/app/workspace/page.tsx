@@ -22,7 +22,7 @@ export default async function WorkspacePage() {
       actorLogin={actor.login}
       methods={methods}
       messages={messageList.map(toHistoryMessage)}
-      rsaReady={status.rsa.status === "READY"}
+      rsaReady={status.kafka.collectedPrimeCount >= 2}
     />
   );
 }
