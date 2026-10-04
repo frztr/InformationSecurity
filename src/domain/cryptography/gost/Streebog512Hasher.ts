@@ -1,4 +1,4 @@
-import { PI_TABLE } from "@/domain/cryptography/gost/PiSubstitution";
+import { STransform } from "@/domain/cryptography/gost/PiSubstitution";
 import {
   STREEBOG_LINEAR_MATRIX_TABLE,
   STREEBOG_ROUND_CONSTANTS,
@@ -119,7 +119,7 @@ export class Streebog512Hasher {
    * @param block Входной блок.
    */
   private STransform(block: Uint8Array): Uint8Array {
-    return Uint8Array.from(block, (byte) => PI_TABLE[byte]);
+    return STransform(block);
   }
 
   /**

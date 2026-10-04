@@ -1,5 +1,6 @@
-import { bitLengthOf, modularPower, rsaCrtModularPower } from "@/domain/cryptography/primes/BigIntegerArithmetic";
+import { bigEndianIntegerToBytes, bytesToBigEndianInteger, modularPower, rsaCrtModularPower } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import type { IRandomIntegerSource } from "@/domain/cryptography/primes/IRandomIntegerSource";
+import { encodePkcs1Block } from "@/domain/cryptography/rsa/Pkcs1Encoding";
 import { rsaModulusByteLength, type RsaPrivateKey, type RsaPublicKey } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
@@ -72,9 +73,9 @@ export class RsaCipher {
    */
   private encryptSingleBlock(plaintext: Uint8Array, publicKey: RsaPublicKey, modulusByteLength: number): Uint8Array {
     const encodedMessage = this.encodePkcs1Type2(plaintext, modulusByteLength);
-    const messageInteger = this.bytesToInteger(encodedMessage);
+    const messageInteger = bytesToBigEndianInteger(encodedMessage);
     const cipherInteger = modularPower(messageInteger, publicKey.publicExponent, publicKey.modulus);
-    return this.integerToFixedBytes(cipherInteger, modulusByteLength);
+    return bigEndianIntegerToBytes(cipherInteger, modulusByteLength);
   }
 
   /**
@@ -85,7 +86,7 @@ export class RsaCipher {
    * @returns Открытый фрагмент без дополнения.
    */
   private decryptSingleBlock(cipherBlock: Uint8Array, privateKey: RsaPrivateKey, modulusByteLength: number): Uint8Array {
-    const cipherInteger = this.bytesToInteger(cipherBlock);
+    const cipherInteger = bytesToBigEndianInteger(cipherBlock);
     const messageInteger = rsaCrtModularPower(
       cipherInteger,
       privateKey.primeP,
@@ -94,7 +95,7 @@ export class RsaCipher {
       privateKey.dq,
       privateKey.qInv,
     );
-    const encodedMessage = this.integerToFixedBytes(messageInteger, modulusByteLength);
+    const encodedMessage = bigEndianIntegerToBytes(messageInteger, modulusByteLength);
     return this.decodePkcs1Type2(encodedMessage);
   }
 
@@ -105,20 +106,17 @@ export class RsaCipher {
    * @returns Блок EM длины модуля.
    */
   private encodePkcs1Type2(message: Uint8Array, modulusByteLength: number): Uint8Array {
-    const paddingLength = modulusByteLength - message.length - 3;
-    if (paddingLength < 8) {
-      throw new Error("Сообщение слишком длинное для одного блока RSA.");
-    }
-
-    const encoded = new Uint8Array(modulusByteLength);
-    encoded[0] = 0x00;
-    encoded[1] = 0x02;
-    for (let index = 0; index < paddingLength; index += 1) {
-      encoded[2 + index] = this.nextNonZeroRandomByte();
-    }
-    encoded[2 + paddingLength] = 0x00;
-    encoded.set(message, 3 + paddingLength);
-    return encoded;
+    return encodePkcs1Block(
+      0x02,
+      message,
+      modulusByteLength,
+      (padding) => {
+        for (let index = 0; index < padding.length; index += 1) {
+          padding[index] = this.nextNonZeroRandomByte();
+        }
+      },
+      "Сообщение слишком длинное для одного блока RSA.",
+    );
   }
 
   /**
@@ -151,35 +149,5 @@ export class RsaCipher {
       this.randomIntegerSource.fillBytes(buffer);
     } while (buffer[0] === 0);
     return buffer[0];
-  }
-
-  /**
-   * Читает байты как целое big-endian.
-   * @param bytes Исходные байты.
-   */
-  private bytesToInteger(bytes: Uint8Array): bigint {
-    let value = 0n;
-    for (const byte of bytes) {
-      value = (value << 8n) | BigInt(byte);
-    }
-    return value;
-  }
-
-  /**
-   * Записывает целое в буфер фиксированной длины (big-endian, старшие нули).
-   * @param value Неотрицательное целое.
-   * @param byteLength Длина буфера в байтах.
-   */
-  private integerToFixedBytes(value: bigint, byteLength: number): Uint8Array {
-    if (bitLengthOf(value) > byteLength * 8) {
-      throw new Error("Целое число не помещается в запрошенную длину блока RSA.");
-    }
-    const bytes = new Uint8Array(byteLength);
-    let remaining = value;
-    for (let index = byteLength - 1; index >= 0; index -= 1) {
-      bytes[index] = Number(remaining & 0xffn);
-      remaining >>= 8n;
-    }
-    return bytes;
   }
 }

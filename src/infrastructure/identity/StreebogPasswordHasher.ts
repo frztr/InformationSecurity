@@ -1,3 +1,4 @@
+import { constantTimeEquals } from "@/domain/cryptography/ConstantTimeComparison";
 import { Streebog512Hasher } from "@/domain/cryptography/gost/Streebog512Hasher";
 import type { IRandomIntegerSource } from "@/domain/cryptography/primes/IRandomIntegerSource";
 import { CryptographicRandomIntegerSource } from "@/domain/cryptography/primes/CryptographicRandomIntegerSource";
@@ -57,15 +58,4 @@ export class StreebogPasswordHasher implements IPasswordHasher {
     material.set(passwordBytes, salt.length);
     return this.hasher.hashBytes(material);
   }
-}
-
-function constantTimeEquals(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-  let difference = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    difference |= left[index] ^ right[index];
-  }
-  return difference === 0;
 }

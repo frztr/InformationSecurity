@@ -123,3 +123,33 @@ export function rsaCrtModularPower(
   const h = (((residueModP - residueModQ) % primeP + primeP) * qInv) % primeP;
   return residueModQ + h * primeQ;
 }
+
+/**
+ * Читает байты как целое. Первый байт — старший.
+ * @param bytes Исходные байты.
+ */
+export function bytesToBigEndianInteger(bytes: Uint8Array): bigint {
+  let value = 0n;
+  for (const byte of bytes) {
+    value = (value << 8n) | BigInt(byte);
+  }
+  return value;
+}
+
+/**
+ * Записывает целое в буфер фиксированной длины. Первый байт — старший, недостающие старшие байты — нули.
+ * @param value Неотрицательное целое.
+ * @param byteLength Длина буфера в байтах.
+ */
+export function bigEndianIntegerToBytes(value: bigint, byteLength: number): Uint8Array {
+  if (bitLengthOf(value) > byteLength * 8) {
+    throw new Error("Целое число не помещается в запрошенную длину блока RSA.");
+  }
+  const bytes = new Uint8Array(byteLength);
+  let remaining = value;
+  for (let index = byteLength - 1; index >= 0; index -= 1) {
+    bytes[index] = Number(remaining & 0xffn);
+    remaining >>= 8n;
+  }
+  return bytes;
+}

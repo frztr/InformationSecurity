@@ -15,6 +15,15 @@ export const PI_TABLE: readonly number[] = [
   190, 229, 108, 82, 89, 166, 116, 210, 230, 244, 180, 192, 209, 102, 175, 194, 57, 75, 99, 182,
 ];
 
+/**
+ * Заменяет каждый байт блока по таблице подстановки.
+ * @param block Входной блок.
+ * @param table Таблица из 256 значений. По умолчанию π.
+ */
+export function STransform(block: Uint8Array, table: readonly number[] = PI_TABLE): Uint8Array {
+  return Uint8Array.from(block, (byte) => table[byte]);
+}
+
 /** Обратная таблица π⁻¹: π⁻¹[π[x]] = x. */
 export const PI_INVERSE_TABLE: readonly number[] = (() => {
   const inverse: number[] = new Array<number>(256);
