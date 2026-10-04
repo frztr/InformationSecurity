@@ -7,7 +7,6 @@ import { RegistrationService } from "@/application/identity/RegistrationService"
 import { MessageService } from "@/application/messaging/MessageService";
 import { RsaMessageEncryptionStrategy } from "@/application/messaging/RsaMessageEncryptionStrategy";
 import { KuznyechikMessageEncryptionStrategy } from "@/application/messaging/KuznyechikMessageEncryptionStrategy";
-import { SystemService } from "@/application/system/SystemService";
 import { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import { CryptographicRandomIntegerSource } from "@/domain/cryptography/primes/CryptographicRandomIntegerSource";
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
@@ -50,7 +49,6 @@ export type ApplicationServices = {
   passwordResetService: PasswordResetService;
   messageService: MessageService;
   administrationService: AdministrationService;
-  systemService: SystemService;
 };
 
 let servicesInstance: ApplicationServices | null = null;
@@ -151,7 +149,6 @@ function getServices(): ApplicationServices {
       settings.auth.totpIssuer,
       settings.auth.recoveryCodeCount,
     ),
-    systemService: new SystemService(collectedPrimeNumberRepository, settings),
   };
 
   return servicesInstance;

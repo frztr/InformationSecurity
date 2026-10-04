@@ -25,12 +25,6 @@ export interface ICollectedPrimeNumberRepository {
    */
   listByBitLength(bitLength: number): Promise<CollectedPrimeNumber[]>;
   /**
-   * Возвращает число сохранённых записей заданной битовой длины.
-   * @param bitLength Запрошенная длина в битах.
-   * @returns Количество записей.
-   */
-  countByBitLength(bitLength: number): Promise<number>;
-  /**
    * Удаляет простые с указанными десятичными записями.
    * @param decimalValues Десятичные записи.
    * @returns Сколько записей удалено.

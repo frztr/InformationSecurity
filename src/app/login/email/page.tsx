@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { verifyEmailOtp } from "@/ui/api/authApi";
 import { useBusyAction } from "@/ui/http/useBusyAction";
-import { publicHostLabel, useSystemStatus } from "@/ui/useSystemStatus";
+import { publicHostLabel, useSessionContext } from "@/ui/useSessionContext";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 export default function LoginEmailPage() {
   const [otpCode, setOtpCode] = useState("");
   const { pending, run } = useBusyAction();
-  const { mail } = useSystemStatus();
+  const { mail } = useSessionContext();
 
   async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { confirmPasswordReset, requestPasswordReset } from "@/ui/api/authApi";
 import { useBusyAction } from "@/ui/http/useBusyAction";
-import { publicHostLabel, useSystemStatus } from "@/ui/useSystemStatus";
+import { publicHostLabel, useSessionContext } from "@/ui/useSessionContext";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ export default function RecoverPage() {
   const [newPassword, setNewPassword] = useState("");
   const requesting = useBusyAction();
   const confirming = useBusyAction();
-  const { mail } = useSystemStatus();
+  const { mail } = useSessionContext();
   const busy = requesting.pending || confirming.pending;
 
   async function requestReset(event: React.FormEvent<HTMLFormElement>): Promise<void> {

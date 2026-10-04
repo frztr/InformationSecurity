@@ -40,32 +40,4 @@ export class RsaKeyPairAssembler {
       privateKey: createRsaPrivateKey(modulus, publicExponent, privateExponent, primeP, primeQ),
     };
   }
-
-  /**
-   * Подбирает пару различных простых из пула, из которой собирается ключ.
-   * @param primes Кандидаты простых.
-   * @param publicExponent Открытая экспонента e.
-   * @param expectedModulusBitLength Ожидаемая длина модуля в битах.
-   * @returns Первая успешная пара ключей либо null.
-   */
-  public tryAssembleFromPool(
-    primes: readonly bigint[],
-    publicExponent: bigint,
-    expectedModulusBitLength: number,
-  ): RsaKeyPair | null {
-    for (let firstIndex = 0; firstIndex < primes.length; firstIndex += 1) {
-      for (let secondIndex = firstIndex + 1; secondIndex < primes.length; secondIndex += 1) {
-        const keyPair = this.tryAssemble(
-          primes[firstIndex],
-          primes[secondIndex],
-          publicExponent,
-          expectedModulusBitLength,
-        );
-        if (keyPair) {
-          return keyPair;
-        }
-      }
-    }
-    return null;
-  }
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { registerUser, type Enrollment } from "@/ui/api/authApi";
 import { useBusyAction } from "@/ui/http/useBusyAction";
-import { useSystemStatus } from "@/ui/useSystemStatus";
+import { useSessionContext } from "@/ui/useSessionContext";
 import { BusyButton } from "@/components/site/BusyButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ export default function RegisterPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const { pending, run } = useBusyAction();
-  const { mail } = useSystemStatus();
+  const { mail } = useSessionContext();
 
   async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();

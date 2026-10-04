@@ -18,7 +18,6 @@ type WorkspaceClientProps = {
   actorLogin: string;
   methods: Array<{ method: EncryptionMethod; enabled: boolean }>;
   messages: HistoryMessage[];
-  rsaReady: boolean;
 };
 
 /**
@@ -26,15 +25,12 @@ type WorkspaceClientProps = {
  * @param props.actorLogin Логин текущего пользователя.
  * @param props.methods Список методов шифрования и их доступность.
  * @param props.messages Начальный журнал сообщений.
- * @param props.rsaReady В пуле хватает простых на новую пару RSA.
  */
-export function WorkspaceClient({ actorLogin, methods, messages, rsaReady }: WorkspaceClientProps) {
+export function WorkspaceClient({ actorLogin, methods, messages }: WorkspaceClientProps) {
   const [plaintext, setPlaintext] = useState("");
   const enabledMethods = methods.filter((item) => item.enabled);
   const [method, setMethod] = useState<EncryptionMethod>(
-    rsaReady && enabledMethods.some((item) => item.method === "RSA")
-      ? "RSA"
-      : (enabledMethods[0]?.method ?? "KUZNYECHIK"),
+    enabledMethods.some((item) => item.method === "RSA") ? "RSA" : (enabledMethods[0]?.method ?? "KUZNYECHIK"),
   );
   const [history, setHistory] = useState(messages);
   const encrypting = useBusyAction();
@@ -57,9 +53,7 @@ export function WorkspaceClient({ actorLogin, methods, messages, rsaReady }: Wor
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
       <div>
         <h1 className="text-2xl font-semibold">Рабочий стол</h1>
-        <p className="text-sm text-muted-foreground">
-          Пользователь {actorLogin}. RSA-32768 {rsaReady ? "доступна: в пуле есть два простых" : "ожидает ещё два простых из Kafka"}.
-        </p>
+        <p className="text-sm text-muted-foreground">Пользователь {actorLogin}.</p>
       </div>
       <Card aria-busy={encrypting.pending}>
         <CardHeader>
@@ -86,7 +80,7 @@ export function WorkspaceClient({ actorLogin, methods, messages, rsaReady }: Wor
               </SelectTrigger>
               <SelectContent>
                 {enabledMethods.map((item) => (
-                  <SelectItem key={item.method} value={item.method} disabled={item.method === "RSA" && !rsaReady}>
+                  <SelectItem key={item.method} value={item.method}>
                     {item.method === "RSA" ? "RSA-32768" : "Кузнечик"}
                   </SelectItem>
                 ))}

@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { logoutSession } from "@/ui/api/authApi";
 import { useBusyAction } from "@/ui/http/useBusyAction";
-import { useSystemStatus } from "@/ui/useSystemStatus";
+import { useSessionContext } from "@/ui/useSessionContext";
 
 /**
  * Шапка сайта: навигация по ролям, ссылка на веб-почту и выход из сессии.
  */
 export function SiteHeader() {
-  const { ready, actor, mail } = useSystemStatus();
+  const { loaded, actor, mail } = useSessionContext();
   const loggingOut = useBusyAction();
 
   async function logout(): Promise<void> {
@@ -29,7 +29,7 @@ export function SiteHeader() {
           InformationSecurity
         </Link>
         <nav className="flex items-center gap-2">
-          {!ready ? (
+          {!loaded ? (
             <>
               <Skeleton className="h-7 w-16" />
               <Skeleton className="h-7 w-16" />

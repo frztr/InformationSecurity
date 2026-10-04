@@ -10,11 +10,10 @@ export const dynamic = "force-dynamic";
  */
 export default async function WorkspacePage() {
   const actor = await authorizePage();
-  const { administrationService, messageService, systemService } = await getReadyServices();
-  const [methods, messageList, status] = await Promise.all([
+  const { administrationService, messageService } = await getReadyServices();
+  const [methods, messageList] = await Promise.all([
     administrationService.getAllEncryptionMethods(),
     messageService.getEncryptedMessages(actor),
-    systemService.getSystemStatus(),
   ]);
 
   return (
@@ -22,7 +21,6 @@ export default async function WorkspacePage() {
       actorLogin={actor.login}
       methods={methods}
       messages={messageList.map(toHistoryMessage)}
-      rsaReady={status.kafka.collectedPrimeCount >= 2}
     />
   );
 }

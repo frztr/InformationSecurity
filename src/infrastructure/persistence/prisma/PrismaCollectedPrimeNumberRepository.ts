@@ -47,15 +47,6 @@ export class PrismaCollectedPrimeNumberRepository implements ICollectedPrimeNumb
   }
 
   /**
-   * Считает простые заданной битовой длины.
-   * @param bitLength Длина в битах.
-   * @returns Число записей.
-   */
-  public async countByBitLength(bitLength: number): Promise<number> {
-    return getPrismaClient().collectedRsaPrime.count({ where: { bitLength } });
-  }
-
-  /**
    * Удаляет простые с указанными десятичными записями.
    * @param decimalValues Десятичные записи.
    * @returns Сколько записей удалено.

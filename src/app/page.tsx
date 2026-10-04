@@ -8,15 +8,11 @@ import { getCurrentUser } from "@/infrastructure/http/AuthenticationMiddleware";
 export const dynamic = "force-dynamic";
 
 /**
- * Публичная главная: обзор системы, роли, методы шифрования и пул простых RSA.
+ * Публичная главная: роли и методы шифрования.
  */
 export default async function HomePage() {
-  const { administrationService, systemService } = await getReadyServices();
-  const [actor, methods, status] = await Promise.all([
-    getCurrentUser(),
-    administrationService.getAllEncryptionMethods(),
-    systemService.getSystemStatus(),
-  ]);
+  const { administrationService, applicationSettings } = await getReadyServices();
+  const [actor, methods] = await Promise.all([getCurrentUser(), administrationService.getAllEncryptionMethods()]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-10">
@@ -39,7 +35,7 @@ export default async function HomePage() {
                 <Link href="/login">Войти</Link>
               </Button>
               <Button variant="outline" asChild>
-                <a href={status.mail.signupUrl} target="_blank" rel="noreferrer">
+                <a href={applicationSettings.mail.signupUrl} target="_blank" rel="noreferrer">
                   Завести почту
                 </a>
               </Button>
@@ -51,7 +47,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Роли</CardTitle>
@@ -78,20 +74,6 @@ export default async function HomePage() {
                 <Badge variant={item.enabled ? "default" : "secondary"}>{item.enabled ? "включён" : "выключен"}</Badge>
               </div>
             ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Пул простых RSA</CardTitle>
-            <CardDescription>Каждый ключ шифрования и каждая подпись PDF собираются из новой пары</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>Длина модуля: {status.rsa.modulusBitLength} бит</p>
-            <p>
-              Накоплено {status.kafka.collectedPrimeCount} простых по {status.kafka.expectedPrimeBitLength} бит. На один ключ
-              нужны два.
-            </p>
-            <p>Пока в пуле меньше двух простых, доступен только «Кузнечик».</p>
           </CardContent>
         </Card>
       </div>
