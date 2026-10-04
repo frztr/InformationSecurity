@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U is_app -d information_security"]
+      test: ["CMD", "pg_isready", "-U", "is_app", "-d", "information_security"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -122,13 +122,25 @@ services:
       - mailu_data:/data
       - mailu_dkim:/dkim
       - ./docker/mailu/bootstrap.yml:/bootstrap.yml:ro
-      - ./docker/mailu/bootstrap.sh:/bootstrap.sh:ro
     depends_on:
       - admin
     restart: "no"
     networks:
       - mailu
-    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    entrypoint: ["python3"]
+    command:
+      - -c
+      - |
+        import os, subprocess, sys, time
+        for _ in range(90):
+            if os.path.isfile("/data/main.db"):
+                completed = subprocess.run(["flask", "mailu", "config-import", "-u", "/bootstrap.yml"])
+                if completed.returncode == 0:
+                    print("Mailu bootstrap OK")
+                    raise SystemExit(0)
+            time.sleep(3)
+        print("Mailu bootstrap failed", file=sys.stderr)
+        raise SystemExit(1)
 
   kafka:
     image: apache/kafka:latest
@@ -155,7 +167,7 @@ services:
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list || exit 1"]
+      test: ["CMD", "/opt/kafka/bin/kafka-topics.sh", "--bootstrap-server", "127.0.0.1:9092", "--list"]
       interval: 10s
       timeout: 10s
       retries: 18

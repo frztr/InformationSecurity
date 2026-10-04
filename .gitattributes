@@ -1,2 +1,4 @@
-# Bind-mounts go into Linux containers. CRLF on Windows checkouts breaks /bin/sh.
+# Linux-контейнеры читают эти файлы как есть. На Windows checkout не должен подменять LF на CRLF.
+docker-compose.yml text eol=lf
+Dockerfile text eol=lf
 *.sh text eol=lf
