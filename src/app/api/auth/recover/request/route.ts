@@ -7,9 +7,9 @@ import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 /**
  * POST: запрашивает письмо со кодом и токеном сброса пароля, если адрес есть в системе.
  */
-export const POST = endpoint(jsonBody(RequestPasswordResetRequest), async ({ body }) => {
-  const { passwordReset } = await getReadyServices();
-  await passwordReset.requestPasswordReset(body.email);
+export const POST = endpoint(jsonBody(RequestPasswordResetRequest), async ({ body }: { body: RequestPasswordResetRequest }) => {
+  const { passwordResetService } = await getReadyServices();
+  await passwordResetService.requestPasswordReset(body.email);
   return NextResponse.json({
     message: "Если адрес есть в системе, письмо с кодом и токеном отправлено.",
   });

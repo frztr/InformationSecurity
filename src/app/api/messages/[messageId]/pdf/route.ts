@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { UserAccount } from "@/domain/identity/UserAccount";
 import { getReadyServices } from "@/infrastructure/composition/ApplicationComposer";
 import { authenticate } from "@/infrastructure/http/AuthenticationMiddleware";
 import { MessageIdRouteParams } from "@/infrastructure/http/contracts";
@@ -15,9 +16,9 @@ export const GET = endpoint(
   authenticate,
   routeParams(MessageIdRouteParams),
   catchErrors(400, "Ошибка PDF"),
-  async ({ user, routeParams: params }) => {
-    const { messages } = await getReadyServices();
-    return fromResult(await messages.exportMessageAsSignedPdf(user, params.messageId), 400, (resultDto) => {
+  async ({ user, routeParams: params }: { user: UserAccount; routeParams: MessageIdRouteParams }) => {
+    const { messageService } = await getReadyServices();
+    return fromResult(await messageService.exportMessageAsSignedPdf(user, params.messageId), 400, (resultDto) => {
       return new NextResponse(Buffer.from(resultDto.pdfBytes), {
         headers: {
           "Content-Type": "application/pdf",

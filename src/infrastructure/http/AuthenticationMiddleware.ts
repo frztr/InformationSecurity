@@ -12,8 +12,8 @@ import type { HttpContext, HttpHandler } from "@/infrastructure/http/HttpPipelin
  * @returns Учётная запись или null.
  */
 export const getCurrentUser = cache(async (): Promise<UserAccount | null> => {
-  const { authentication } = await getReadyServices();
-  return authentication.getUserBySessionToken(await readSessionToken());
+  const { authenticationService } = await getReadyServices();
+  return authenticationService.getUserBySessionToken(await readSessionToken());
 });
 
 /**

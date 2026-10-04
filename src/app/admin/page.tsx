@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminPage() {
   const actor = await authorizePage(UserRole.ADMIN);
-  const { administration, messages } = await getReadyServices();
+  const { administrationService, messageService } = await getReadyServices();
   const [methods, usersResult, messageList] = await Promise.all([
-    administration.getAllEncryptionMethods(),
-    administration.getAllUsers(actor),
-    messages.getEncryptedMessages(actor),
+    administrationService.getAllEncryptionMethods(),
+    administrationService.getAllUsers(actor),
+    messageService.getEncryptedMessages(actor),
   ]);
   if (usersResult.isError) {
     throw new Error(usersResult.error);

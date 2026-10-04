@@ -10,10 +10,10 @@ import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 export const POST = endpoint(
   jsonBody(ConfirmPasswordResetRequest),
   catchErrors(400, "Ошибка сброса пароля"),
-  async ({ body }) => {
-    const { passwordReset } = await getReadyServices();
+  async ({ body }: { body: ConfirmPasswordResetRequest }) => {
+    const { passwordResetService } = await getReadyServices();
     return jsonFromResult(
-      await passwordReset.confirmPasswordReset(body.email, body.otpCode, body.resetToken, body.newPassword),
+      await passwordResetService.confirmPasswordReset(body.email, body.otpCode, body.resetToken, body.newPassword),
       400,
       () => ({ ok: true }),
     );

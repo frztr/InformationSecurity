@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
  * Публичная главная: обзор системы, роли, методы шифрования и статус ключей RSA.
  */
 export default async function HomePage() {
-  const { administration, system } = await getReadyServices();
+  const { administrationService, systemService } = await getReadyServices();
   const [actor, methods, status] = await Promise.all([
     getCurrentUser(),
-    administration.getAllEncryptionMethods(),
-    system.getSystemStatus(),
+    administrationService.getAllEncryptionMethods(),
+    systemService.getSystemStatus(),
   ]);
 
   return (

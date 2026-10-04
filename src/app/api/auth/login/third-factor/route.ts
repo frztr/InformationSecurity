@@ -12,10 +12,10 @@ import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 export const POST = endpoint(
   jsonBody(VerifyThirdFactorRequest),
   catchErrors(401, "Ошибка 3-го фактора"),
-  async ({ body }) => {
-    const { authentication } = await getReadyServices();
+  async ({ body }: { body: VerifyThirdFactorRequest }) => {
+    const { authenticationService } = await getReadyServices();
     return fromResult(
-      await authentication.verifyThirdFactor((await readPendingLoginId()) ?? "", body.code),
+      await authenticationService.verifyThirdFactor((await readPendingLoginId()) ?? "", body.code),
       401,
       (resultDto) => {
         const response = NextResponse.json({ next: "/workspace" });

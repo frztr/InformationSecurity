@@ -11,10 +11,10 @@ import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 export const POST = endpoint(
   jsonBody(VerifyEmailOtpRequest),
   catchErrors(401, "Ошибка 2-го фактора"),
-  async ({ body }) => {
-    const { authentication } = await getReadyServices();
+  async ({ body }: { body: VerifyEmailOtpRequest }) => {
+    const { authenticationService } = await getReadyServices();
     return jsonFromResult(
-      await authentication.verifyEmailOtp((await readPendingLoginId()) ?? "", body.otpCode),
+      await authenticationService.verifyEmailOtp((await readPendingLoginId()) ?? "", body.otpCode),
       401,
       () => ({ next: "/login/totp" }),
     );

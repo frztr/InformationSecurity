@@ -6,10 +6,10 @@ import { getCurrentUser } from "@/infrastructure/http/AuthenticationMiddleware";
  * GET: статус системы, методы шифрования и текущий актор (гость или вошедший пользователь).
  */
 export async function GET(): Promise<Response> {
-  const { administration, system } = await getReadyServices();
+  const { administrationService, systemService } = await getReadyServices();
   const [status, methods, user] = await Promise.all([
-    system.getSystemStatus(),
-    administration.getAllEncryptionMethods(),
+    systemService.getSystemStatus(),
+    administrationService.getAllEncryptionMethods(),
     getCurrentUser(),
   ]);
 

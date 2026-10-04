@@ -45,14 +45,14 @@ import { PrismaUserAccountRepository } from "@/infrastructure/persistence/prisma
  * Собранные прикладные сервисы и загруженная конфигурация.
  */
 export type ApplicationServices = {
-  settings: ApplicationSettings;
-  secrets: ApplicationSecrets;
-  authentication: AuthenticationService;
-  registration: RegistrationService;
-  passwordReset: PasswordResetService;
-  messages: MessageService;
-  administration: AdministrationService;
-  system: SystemService;
+  applicationSettings: ApplicationSettings;
+  applicationSecrets: ApplicationSecrets;
+  authenticationService: AuthenticationService;
+  registrationService: RegistrationService;
+  passwordResetService: PasswordResetService;
+  messageService: MessageService;
+  administrationService: AdministrationService;
+  systemService: SystemService;
 };
 
 let servicesInstance: ApplicationServices | null = null;
@@ -116,11 +116,11 @@ function getServices(): ApplicationServices {
   const kuznyechikMasterKey = parseHexString(secrets.kuznyechik.masterKeyHex);
 
   servicesInstance = {
-    settings,
-    secrets,
-    authentication,
-    registration,
-    passwordReset: new PasswordResetService(
+    applicationSettings: settings,
+    applicationSecrets: secrets,
+    authenticationService: authentication,
+    registrationService: registration,
+    passwordResetService: new PasswordResetService(
       userAccountRepository,
       emailOtpRepository,
       passwordResetTokenRepository,
@@ -129,7 +129,7 @@ function getServices(): ApplicationServices {
       settings.auth.emailOtpTtlSeconds,
       settings.auth.passwordResetTtlMinutes,
     ),
-    messages: new MessageService(
+    messageService: new MessageService(
       encryptedMessageRepository,
       encryptionMethodRepository,
       {
@@ -141,7 +141,7 @@ function getServices(): ApplicationServices {
       new SignedPdfDocumentFactory(),
       kuznyechikMasterKey,
     ),
-    administration: new AdministrationService(
+    administrationService: new AdministrationService(
       userAccountRepository,
       recoveryCodeRepository,
       encryptionMethodRepository,
@@ -150,7 +150,7 @@ function getServices(): ApplicationServices {
       settings.auth.totpIssuer,
       settings.auth.recoveryCodeCount,
     ),
-    system: new SystemService(
+    systemService: new SystemService(
       systemRsaKeyStore,
       collectedPrimeNumberRepository,
       settings,
@@ -171,7 +171,7 @@ export async function getReadyServices(): Promise<ApplicationServices> {
 
 async function publishDefaultAdminEnrollment(services: ApplicationServices): Promise<void> {
   const { enrollment, createdNow } = await readOrCreateAdminEnrollment(async () => {
-    const enrollment = await services.administration.enrollDefaultAdmin(services.secrets.admin);
+    const enrollment = await services.administrationService.enrollDefaultAdmin(services.applicationSecrets.admin);
     if (enrollment.isError) {
       throw new Error(enrollment.error);
     }
@@ -194,7 +194,7 @@ async function publishDefaultAdminEnrollment(services: ApplicationServices): Pro
     if (!mailGatewayInstance) {
       throw new Error("Почтовый шлюз ещё не собран.");
     }
-    await sendAdminEnrollmentMail(mailGatewayInstance, enrollment, services.settings.mail.webmailUrl);
+    await sendAdminEnrollmentMail(mailGatewayInstance, enrollment, services.applicationSettings.mail.webmailUrl);
     markAdminEnrollmentMailSent();
     console.info(`TOTP и коды восстановления отправлены на ${enrollment.email}`);
   } catch (error) {
@@ -214,16 +214,16 @@ export async function initializeApplication(): Promise<void> {
 
   const services = getServices();
   await getPrismaClient().$connect();
-  await services.administration.ensureDefaultEncryptionMethods();
+  await services.administrationService.ensureDefaultEncryptionMethods();
   await publishDefaultAdminEnrollment(services);
-  const rehashed = await services.administration.rehashDefaultAdminPasswordIfNeeded(services.secrets.admin);
+  const rehashed = await services.administrationService.rehashDefaultAdminPasswordIfNeeded(services.applicationSecrets.admin);
   if (rehashed) {
     console.info("Пароль администратора перехеширован Стрибог-512.");
   }
 
   const keyStore = new PrismaSystemRsaKeyStore();
   const keyPair = await keyStore.tryGetKeyPair();
-  const { rsa, kafka } = services.settings;
+  const { rsa, kafka } = services.applicationSettings;
   if ((!keyPair || bitLengthOf(keyPair.publicKey.modulus) !== rsa.modulusBitLength) && !kafkaRsaAssemblerStarted) {
     kafkaRsaAssemblerStarted = true;
     const assembler = new KafkaRsaKeyAssembler(

@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function WorkspacePage() {
   const actor = await authorizePage();
-  const { administration, messages, system } = await getReadyServices();
+  const { administrationService, messageService, systemService } = await getReadyServices();
   const [methods, messageList, status] = await Promise.all([
-    administration.getAllEncryptionMethods(),
-    messages.getEncryptedMessages(actor),
-    system.getSystemStatus(),
+    administrationService.getAllEncryptionMethods(),
+    messageService.getEncryptedMessages(actor),
+    systemService.getSystemStatus(),
   ]);
 
   return (

@@ -7,8 +7,8 @@ import { endpoint } from "@/infrastructure/http/HttpPipeline";
  * POST: завершает сессию и снимает cookie сессии.
  */
 export const POST = endpoint(async () => {
-  const { authentication } = await getReadyServices();
-  await authentication.logout(await readSessionToken());
+  const { authenticationService } = await getReadyServices();
+  await authenticationService.logout(await readSessionToken());
   const response = NextResponse.json({ ok: true });
   clearSessionCookie(response);
   return response;

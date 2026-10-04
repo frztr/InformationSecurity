@@ -10,8 +10,8 @@ import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 export const POST = endpoint(
   jsonBody(RegisterUserRequest),
   catchErrors(400, "Ошибка регистрации"),
-  async ({ body }) => {
-    const { registration } = await getReadyServices();
-    return jsonFromResult(await registration.registerUser(body), 400);
+  async ({ body }: { body: RegisterUserRequest }) => {
+    const { registrationService } = await getReadyServices();
+    return jsonFromResult(await registrationService.registerUser(body), 400);
   },
 );
