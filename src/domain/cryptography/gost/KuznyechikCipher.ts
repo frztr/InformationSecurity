@@ -22,15 +22,15 @@ export class KuznyechikCipher {
   private readonly roundKeys: Uint8Array[];
 
   /**
-   * Разворачивает десять раундовых ключей из 32-байтного мастер-ключа.
-   * @param masterKey Ключ длиной 32 байта.
+   * Разворачивает десять раундовых ключей из 256-битного ключа.
+   * @param key Ключ длиной 32 байта.
    */
-  public constructor(masterKey: Uint8Array) {
-    if (masterKey.length !== KEY_SIZE_BYTES) {
+  public constructor(key: Uint8Array) {
+    if (key.length !== KEY_SIZE_BYTES) {
       throw new Error("Ключ «Кузнечика» должен занимать 256 бит (32 байта).");
     }
 
-    this.roundKeys = expandRoundKeys(masterKey);
+    this.roundKeys = expandRoundKeys(key);
   }
 
   /**
@@ -114,13 +114,13 @@ export class KuznyechikCipher {
 
 /**
  * Строит десять раундовых ключей по схеме развёртки ГОСТ Р 34.12-2015.
- * @param masterKey 32-байтный мастер-ключ.
+ * @param key 32-байтный ключ.
  * @returns Массив из 10 раундовых ключей по 16 байт.
  */
-function expandRoundKeys(masterKey: Uint8Array): Uint8Array[] {
+function expandRoundKeys(key: Uint8Array): Uint8Array[] {
   const roundKeys: Uint8Array[] = [
-    new Uint8Array(masterKey.subarray(0, BLOCK_SIZE_BYTES)),
-    new Uint8Array(masterKey.subarray(BLOCK_SIZE_BYTES, KEY_SIZE_BYTES)),
+    new Uint8Array(key.subarray(0, BLOCK_SIZE_BYTES)),
+    new Uint8Array(key.subarray(BLOCK_SIZE_BYTES, KEY_SIZE_BYTES)),
   ];
 
   let leftPart: Uint8Array<ArrayBufferLike> = new Uint8Array(roundKeys[0]);

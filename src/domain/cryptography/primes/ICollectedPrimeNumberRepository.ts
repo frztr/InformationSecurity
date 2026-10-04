@@ -30,4 +30,10 @@ export interface ICollectedPrimeNumberRepository {
    * @returns Количество записей.
    */
   countByBitLength(bitLength: number): Promise<number>;
+  /**
+   * Удаляет простые с указанными десятичными записями.
+   * @param decimalValues Десятичные записи.
+   * @returns Сколько записей удалено.
+   */
+  deleteByDecimalValues(decimalValues: readonly string[]): Promise<number>;
 }

@@ -2,7 +2,7 @@ import { EncryptionMethod, type EncryptionMethod as EncryptionMethodName } from 
 import { toHexString } from "@/domain/cryptography/HexEncoding";
 import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { encodeRsaPrivateKeyPkcs1Pem, encodeRsaPublicKeySpkiPem } from "@/domain/cryptography/rsa/RsaPemEncoding";
-import { createRsaPrivateKey, type RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
+import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
 
 /**
  * Материалы ключа RSA, сохранённые вместе с сообщением.
@@ -52,7 +52,7 @@ export function rsaKeyMaterialModulusBitLength(material: RsaEncryptionKeyMateria
 }
 
 /**
- * Собирает материалы ключа из системной пары RSA.
+ * Собирает материалы ключа из пары RSA.
  * @param keyPair Пара ключей.
  */
 export function rsaEncryptionKeyMaterial(keyPair: RsaKeyPair): RsaEncryptionKeyMaterial {
@@ -74,54 +74,25 @@ export function rsaEncryptionKeyMaterial(keyPair: RsaKeyPair): RsaEncryptionKeyM
 }
 
 /**
- * Дописывает PEM и CRT-поля, если в JSON их ещё нет.
- * @param material Частично заполненные материалы RSA.
+ * Восстанавливает пару RSA из сохранённых материалов сообщения.
+ * @param material Материалы RSA.
  */
-function completeRsaKeyMaterial(material: {
-  publicExponent: string;
-  modulusHex: string;
-  privateExponentHex: string;
-  primePHex: string;
-  primeQHex: string;
-  dpHex?: string;
-  dqHex?: string;
-  qInvHex?: string;
-  publicKeyPem?: string;
-  privateKeyPem?: string;
-}): RsaEncryptionKeyMaterial {
+export function rsaKeyPairFromMaterial(material: RsaEncryptionKeyMaterial): RsaKeyPair {
   const modulus = BigInt(`0x${material.modulusHex}`);
   const publicExponent = BigInt(material.publicExponent);
-  const privateExponent = BigInt(`0x${material.privateExponentHex}`);
-  const primeP = BigInt(`0x${material.primePHex}`);
-  const primeQ = BigInt(`0x${material.primeQHex}`);
-  const privateKey =
-    material.dpHex && material.dqHex && material.qInvHex
-      ? {
-          version: 0 as const,
-          modulus,
-          publicExponent,
-          privateExponent,
-          primeP,
-          primeQ,
-          dp: BigInt(`0x${material.dpHex}`),
-          dq: BigInt(`0x${material.dqHex}`),
-          qInv: BigInt(`0x${material.qInvHex}`),
-        }
-      : createRsaPrivateKey(modulus, publicExponent, privateExponent, primeP, primeQ);
-
   return {
-    method: EncryptionMethod.RSA,
-    version: 0,
-    publicExponent: material.publicExponent,
-    modulusHex: material.modulusHex,
-    privateExponentHex: material.privateExponentHex,
-    primePHex: material.primePHex,
-    primeQHex: material.primeQHex,
-    dpHex: bigintToEvenHex(privateKey.dp),
-    dqHex: bigintToEvenHex(privateKey.dq),
-    qInvHex: bigintToEvenHex(privateKey.qInv),
-    publicKeyPem: material.publicKeyPem || encodeRsaPublicKeySpkiPem(modulus, publicExponent),
-    privateKeyPem: material.privateKeyPem || encodeRsaPrivateKeyPkcs1Pem(privateKey),
+    publicKey: { modulus, publicExponent },
+    privateKey: {
+      version: 0,
+      modulus,
+      publicExponent,
+      privateExponent: BigInt(`0x${material.privateExponentHex}`),
+      primeP: BigInt(`0x${material.primePHex}`),
+      primeQ: BigInt(`0x${material.primeQHex}`),
+      dp: BigInt(`0x${material.dpHex}`),
+      dq: BigInt(`0x${material.dqHex}`),
+      qInv: BigInt(`0x${material.qInvHex}`),
+    },
   };
 }
 
@@ -136,42 +107,6 @@ export function kuznyechikEncryptionKeyMaterial(key: Uint8Array, initializationV
     keyHex: toHexString(key),
     ivHex: toHexString(initializationVector),
   };
-}
-
-/**
- * Извлекает IV из начала шифртекста «Кузнечик» (первые 16 байт в hex).
- * @param ciphertextHex Шифртекст в шестнадцатеричном виде.
- */
-function kuznyechikIvFromCiphertextHex(ciphertextHex: string): Uint8Array {
-  const compactHex = ciphertextHex.replace(/\s+/g, "");
-  const ivHex = compactHex.slice(0, 32);
-  if (ivHex.length !== 32) {
-    return new Uint8Array(0);
-  }
-  const bytes = new Uint8Array(16);
-  for (let index = 0; index < 16; index += 1) {
-    bytes[index] = Number.parseInt(ivHex.slice(index * 2, index * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-/**
- * Восстанавливает материалы ключа для старых записей без сохранённого JSON.
- * @param method Метод шифрования сообщения.
- * @param ciphertextHex Шифртекст (для IV «Кузнечика»).
- * @param rsaKeyPair Текущая системная пара RSA или `null`.
- * @param kuznyechikMasterKey Системный ключ «Кузнечик».
- */
-export function fallbackKeyMaterialForMessage(
-  method: EncryptionMethodName,
-  ciphertextHex: string,
-  rsaKeyPair: RsaKeyPair | null,
-  kuznyechikMasterKey: Uint8Array,
-): EncryptionKeyMaterial | null {
-  if (method === EncryptionMethod.RSA) {
-    return rsaKeyPair ? rsaEncryptionKeyMaterial(rsaKeyPair) : null;
-  }
-  return kuznyechikEncryptionKeyMaterial(kuznyechikMasterKey, kuznyechikIvFromCiphertextHex(ciphertextHex));
 }
 
 /**
@@ -192,22 +127,29 @@ export function parseEncryptionKeyMaterial(raw: string | null | undefined): Encr
         typeof material.modulusHex !== "string" ||
         typeof material.privateExponentHex !== "string" ||
         typeof material.primePHex !== "string" ||
-        typeof material.primeQHex !== "string"
+        typeof material.primeQHex !== "string" ||
+        typeof material.dpHex !== "string" ||
+        typeof material.dqHex !== "string" ||
+        typeof material.qInvHex !== "string" ||
+        typeof material.publicKeyPem !== "string" ||
+        typeof material.privateKeyPem !== "string"
       ) {
         return null;
       }
-      return completeRsaKeyMaterial({
+      return {
+        method: EncryptionMethod.RSA,
+        version: 0,
         publicExponent: material.publicExponent,
         modulusHex: material.modulusHex,
         privateExponentHex: material.privateExponentHex,
         primePHex: material.primePHex,
         primeQHex: material.primeQHex,
-        dpHex: typeof material.dpHex === "string" ? material.dpHex : undefined,
-        dqHex: typeof material.dqHex === "string" ? material.dqHex : undefined,
-        qInvHex: typeof material.qInvHex === "string" ? material.qInvHex : undefined,
-        publicKeyPem: typeof material.publicKeyPem === "string" ? material.publicKeyPem : "",
-        privateKeyPem: typeof material.privateKeyPem === "string" ? material.privateKeyPem : "",
-      });
+        dpHex: material.dpHex,
+        dqHex: material.dqHex,
+        qInvHex: material.qInvHex,
+        publicKeyPem: material.publicKeyPem,
+        privateKeyPem: material.privateKeyPem,
+      };
     }
     if (parsed.method === EncryptionMethod.KUZNYECHIK) {
       const material = parsed as Partial<KuznyechikEncryptionKeyMaterial>;

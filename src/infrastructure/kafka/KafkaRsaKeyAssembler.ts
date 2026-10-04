@@ -45,8 +45,9 @@ export class KafkaRsaKeyAssembler {
   }
 
   /**
-   * Запускает сборку: при готовом ключе нужной длины выходит; иначе помечает GENERATING, пробует пул и подписывается на Kafka с повторами.
-   * @returns Ничего после успешного подключения или если ключ уже готов.
+   * Запускает сборку системного ключа и подписывается на Kafka.
+   * Простые продолжают копиться и после готового системного ключа: они нужны новым ключам сообщений.
+   * @returns Ничего после успешного подключения.
    */
   public async start(): Promise<void> {
     if (this.started) {
@@ -55,14 +56,10 @@ export class KafkaRsaKeyAssembler {
     this.started = true;
 
     const existingKey = await this.systemRsaKeyStore.tryGetKeyPair();
-    if (existingKey && bitLengthOf(existingKey.publicKey.modulus) === this.modulusBitLength) {
-      return;
-    }
-
-    await this.systemRsaKeyStore.markGenerating(this.modulusBitLength);
-    const assembledFromStoredPrimes = await this.tryAssembleFromStoredPrimes();
-    if (assembledFromStoredPrimes) {
-      return;
+    const hasMatchingKey = existingKey !== null && bitLengthOf(existingKey.publicKey.modulus) === this.modulusBitLength;
+    if (!hasMatchingKey) {
+      await this.systemRsaKeyStore.markGenerating(this.modulusBitLength);
+      await this.tryAssembleFromStoredPrimes();
     }
 
     let attempt = 0;
@@ -99,11 +96,6 @@ export class KafkaRsaKeyAssembler {
 
     await this.consumer.run({
       eachMessage: async ({ message }) => {
-        const alreadyReady = await this.systemRsaKeyStore.tryGetKeyPair();
-        if (alreadyReady && bitLengthOf(alreadyReady.publicKey.modulus) === this.modulusBitLength) {
-          return;
-        }
-
         if (!message.value) {
           return;
         }
@@ -117,6 +109,11 @@ export class KafkaRsaKeyAssembler {
         }
 
         await this.collectedPrimeNumberRepository.addIfAbsent(payload.decimalValue, payload.bitLength);
+        const alreadyReady = await this.systemRsaKeyStore.tryGetKeyPair();
+        if (alreadyReady && bitLengthOf(alreadyReady.publicKey.modulus) === this.modulusBitLength) {
+          return;
+        }
+
         const assembled = await this.tryAssembleFromStoredPrimes();
         if (assembled) {
           console.info(`Ключ RSA-${this.modulusBitLength} собран из простых, опубликованных в Kafka.`);
@@ -181,6 +178,10 @@ export class KafkaRsaKeyAssembler {
       return false;
     }
     await this.systemRsaKeyStore.saveKeyPair(keyPair);
+    await this.collectedPrimeNumberRepository.deleteByDecimalValues([
+      keyPair.privateKey.primeP.toString(),
+      keyPair.privateKey.primeQ.toString(),
+    ]);
     return true;
   }
 }

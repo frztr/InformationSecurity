@@ -54,4 +54,19 @@ export class PrismaCollectedPrimeNumberRepository implements ICollectedPrimeNumb
   public async countByBitLength(bitLength: number): Promise<number> {
     return getPrismaClient().collectedRsaPrime.count({ where: { bitLength } });
   }
+
+  /**
+   * Удаляет простые с указанными десятичными записями.
+   * @param decimalValues Десятичные записи.
+   * @returns Сколько записей удалено.
+   */
+  public async deleteByDecimalValues(decimalValues: readonly string[]): Promise<number> {
+    if (decimalValues.length === 0) {
+      return 0;
+    }
+    const deleted = await getPrismaClient().collectedRsaPrime.deleteMany({
+      where: { decimalValue: { in: [...decimalValues] } },
+    });
+    return deleted.count;
+  }
 }

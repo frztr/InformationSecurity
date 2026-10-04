@@ -9,7 +9,6 @@ import { RsaMessageEncryptionStrategy } from "@/application/messaging/RsaMessage
 import { KuznyechikMessageEncryptionStrategy } from "@/application/messaging/KuznyechikMessageEncryptionStrategy";
 import { SystemService } from "@/application/system/SystemService";
 import { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
-import { parseHexString } from "@/domain/cryptography/HexEncoding";
 import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { CryptographicRandomIntegerSource } from "@/domain/cryptography/primes/CryptographicRandomIntegerSource";
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
@@ -113,7 +112,6 @@ function getServices(): ApplicationServices {
     settings.auth.pendingLoginTtlMinutes,
     settings.auth.sessionTtlHours,
   );
-  const kuznyechikMasterKey = parseHexString(secrets.kuznyechik.masterKeyHex);
 
   servicesInstance = {
     applicationSettings: settings,
@@ -133,13 +131,18 @@ function getServices(): ApplicationServices {
       encryptedMessageRepository,
       encryptionMethodRepository,
       {
-        [EncryptionMethod.RSA]: new RsaMessageEncryptionStrategy(systemRsaKeyStore, randomIntegerSource),
-        [EncryptionMethod.KUZNYECHIK]: new KuznyechikMessageEncryptionStrategy(kuznyechikMasterKey, randomIntegerSource),
+        [EncryptionMethod.RSA]: new RsaMessageEncryptionStrategy(
+          collectedPrimeNumberRepository,
+          new RsaKeyPairAssembler(),
+          BigInt(settings.rsa.publicExponent),
+          settings.rsa.modulusBitLength,
+          randomIntegerSource,
+        ),
+        [EncryptionMethod.KUZNYECHIK]: new KuznyechikMessageEncryptionStrategy(randomIntegerSource),
       },
       systemRsaKeyStore,
       new RsaStreebogDigitalSignature(),
       new SignedPdfDocumentFactory(),
-      kuznyechikMasterKey,
     ),
     administrationService: new AdministrationService(
       userAccountRepository,

@@ -19,8 +19,9 @@ export interface IMessageEncryptionStrategy {
    */
   encrypt(plaintextBytes: Uint8Array): Promise<Result<EncryptedPayload>>;
   /**
-   * Расшифровывает шифртекст.
+   * Расшифровывает шифртекст ключом, сохранённым вместе с сообщением.
    * @param ciphertextHex Шифртекст в шестнадцатеричном виде.
+   * @param keyMaterial Материалы ключа этого сообщения.
    */
-  decrypt(ciphertextHex: string): Promise<Result<Uint8Array>>;
+  decrypt(ciphertextHex: string, keyMaterial: EncryptionKeyMaterial): Promise<Result<Uint8Array>>;
 }

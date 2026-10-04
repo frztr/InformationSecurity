@@ -45,7 +45,7 @@ export type ApplicationSettings = {
 };
 
 /**
- * Секреты приложения (пароль БД, cookie, мастер-ключ Кузнечика, SMTP, учётная запись администратора).
+ * Секреты приложения (пароль БД, cookie, SMTP, учётная запись администратора).
  */
 export type ApplicationSecrets = {
   database: {
@@ -53,9 +53,6 @@ export type ApplicationSecrets = {
   };
   session: {
     cookieSecret: string;
-  };
-  kuznyechik: {
-    masterKeyHex: string;
   };
   smtp: {
     user: string;

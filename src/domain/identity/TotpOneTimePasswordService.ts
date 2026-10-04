@@ -11,16 +11,6 @@ export class TotpOneTimePasswordService {
   public constructor(private readonly hmac: HmacStreebog512 = new HmacStreebog512()) {}
 
   /**
-   * Вычисляет шестизначный TOTP для заданного момента времени.
-   * @param secret Секрет в сырых байтах.
-   * @param unixTimeSeconds Unix-время в секундах.
-   */
-  public generateCode(secret: Uint8Array, unixTimeSeconds: number = Math.floor(Date.now() / 1000)): string {
-    const timeStep = Math.floor(unixTimeSeconds / TOTP_TIME_STEP_SECONDS);
-    return this.generateCodeForTimeStep(secret, timeStep);
-  }
-
-  /**
    * Проверяет код с допуском ±1 шаг (30 с).
    * @param secret Секрет в сырых байтах.
    * @param presentedCode Предъявленный шестизначный код.

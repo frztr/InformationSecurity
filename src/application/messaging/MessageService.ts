@@ -5,18 +5,13 @@ import { ENCRYPTION_METHOD_LABELS } from "@/domain/cryptography/EncryptionMethod
 import { bitLengthOf } from "@/domain/cryptography/primes/BigIntegerArithmetic";
 import { Streebog512Hasher } from "@/domain/cryptography/gost/Streebog512Hasher";
 import { toHexString } from "@/domain/cryptography/HexEncoding";
-import type { RsaKeyPair } from "@/domain/cryptography/rsa/RsaKeyPair";
 import type { RsaStreebogDigitalSignature } from "@/domain/cryptography/rsa/RsaStreebogDigitalSignature";
 import type { ISystemRsaKeyStore } from "@/domain/cryptography/rsa/ISystemRsaKeyStore";
 import type { UserAccount } from "@/domain/identity/UserAccount";
 import { UserRole } from "@/domain/identity/UserRole";
 import type { EncryptedMessageRecord } from "@/domain/messaging/EncryptedMessageRecord";
 import type { IEncryptedMessageRepository } from "@/domain/messaging/IEncryptedMessageRepository";
-import {
-  fallbackKeyMaterialForMessage,
-  rsaKeyMaterialModulusBitLength,
-  type EncryptionKeyMaterial,
-} from "@/domain/messaging/EncryptionKeyMaterial";
+import { rsaKeyMaterialModulusBitLength, type EncryptionKeyMaterial } from "@/domain/messaging/EncryptionKeyMaterial";
 import { fail, ok, type Result } from "@/domain/Result";
 import { SignedPdfDocumentFactory } from "@/infrastructure/pdf/SignedPdfDocumentFactory";
 
@@ -31,7 +26,6 @@ export class MessageService {
     private readonly systemRsaKeyStore: ISystemRsaKeyStore,
     private readonly digitalSignature: RsaStreebogDigitalSignature,
     private readonly pdfDocumentFactory: SignedPdfDocumentFactory,
-    private readonly kuznyechikMasterKey: Uint8Array,
   ) {}
 
   /**
@@ -92,7 +86,12 @@ export class MessageService {
       return strategy;
     }
 
-    const plaintextBytes = await strategy.resultDto.decrypt(message.resultDto.ciphertextHex);
+    const keyMaterial = message.resultDto.keyMaterial;
+    if (!keyMaterial) {
+      return fail("Ключ этого сообщения не сохранён.");
+    }
+
+    const plaintextBytes = await strategy.resultDto.decrypt(message.resultDto.ciphertextHex, keyMaterial);
     if (plaintextBytes.isError) {
       return plaintextBytes;
     }
@@ -108,18 +107,9 @@ export class MessageService {
    * @param actor Текущий пользователь.
    */
   public async getEncryptedMessages(actor: UserAccount): Promise<EncryptedMessageRecord[]> {
-    const messages =
-      actor.role === UserRole.ADMIN
-        ? await this.encryptedMessageRepository.listAll()
-        : await this.encryptedMessageRepository.listByUser(actor.id);
-
-    const needsRsaFallback = messages.some((message) => message.method === "RSA" && !message.keyMaterial);
-    const rsaKeyPair = needsRsaFallback ? await this.systemRsaKeyStore.tryGetKeyPair() : null;
-
-    return messages.map((message) => ({
-      ...message,
-      keyMaterial: this.resolveKeyMaterial(message, rsaKeyPair),
-    }));
+    return actor.role === UserRole.ADMIN
+      ? await this.encryptedMessageRepository.listAll()
+      : await this.encryptedMessageRepository.listByUser(actor.id);
   }
 
   /**
@@ -134,6 +124,11 @@ export class MessageService {
     const message = await this.requireReadableMessage(actor, messageId);
     if (message.isError) {
       return message;
+    }
+
+    const keyMaterial = message.resultDto.keyMaterial;
+    if (!keyMaterial) {
+      return fail("Ключ этого сообщения не сохранён.");
     }
 
     const keyPair = await this.systemRsaKeyStore.tryGetKeyPair();
@@ -156,7 +151,7 @@ export class MessageService {
       createdAtIso: message.resultDto.createdAt.toISOString(),
       plaintext: message.resultDto.plaintext,
       ciphertextHex: message.resultDto.ciphertextHex,
-      keyDump: keyDumpLines(this.resolveKeyMaterial(message.resultDto, keyPair)),
+      keyDump: keyDumpLines(keyMaterial),
       streebog512Hex: contentHashHex,
       signatureHex: toHexString(signatureBytes),
       rsaModulusBitLength: bitLengthOf(keyPair.publicKey.modulus),
@@ -182,18 +177,6 @@ export class MessageService {
   }
 
   /**
-   * Берёт сохранённые материалы ключа или восстанавливает их для старых записей.
-   * @param message Запись сообщения.
-   * @param rsaKeyPair Текущая системная пара RSA или `null`.
-   */
-  private resolveKeyMaterial(message: EncryptedMessageRecord, rsaKeyPair: RsaKeyPair | null): EncryptionKeyMaterial | null {
-    return (
-      message.keyMaterial ??
-      fallbackKeyMaterialForMessage(message.method, message.ciphertextHex, rsaKeyPair, this.kuznyechikMasterKey)
-    );
-  }
-
-  /**
    * Загружает сообщение, если оно существует и доступно пользователю.
    * @param actor Текущий пользователь.
    * @param messageId Идентификатор сообщения.
@@ -210,10 +193,7 @@ export class MessageService {
   }
 }
 
-function keyDumpLines(keyMaterial: EncryptionKeyMaterial | null): Array<{ label: string; value: string }> {
-  if (!keyMaterial) {
-    return [{ label: "keys", value: "unavailable" }];
-  }
+function keyDumpLines(keyMaterial: EncryptionKeyMaterial): Array<{ label: string; value: string }> {
   if (keyMaterial.method === "RSA") {
     return [
       { label: `RSA public key PEM (${rsaKeyMaterialModulusBitLength(keyMaterial)} bit)`, value: keyMaterial.publicKeyPem },
