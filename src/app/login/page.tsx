@@ -32,7 +32,7 @@ export default function LoginPage() {
       <Card className="w-full" aria-busy={pending}>
         <CardHeader>
           <CardTitle>Вход · фактор 1</CardTitle>
-          <CardDescription>Пароль. Затем код из письма и TOTP.</CardDescription>
+          <CardDescription>Пароль. Затем код из письма и код восстановления.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={(event) => void submit(event)}>

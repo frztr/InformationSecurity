@@ -21,7 +21,7 @@ export default async function HomePage() {
         <h1 className="text-3xl font-semibold tracking-tight">Система защиты сообщений</h1>
         <p className="max-w-3xl text-muted-foreground">
           RSA-32768, «Кузнечик» (ГОСТ Р 34.12-2015), Стрибог-512 (ГОСТ Р 34.11-2012), трёхфакторный вход
-          (пароль + письмо + TOTP/коды восстановления) и PDF с электронной подписью. Простые для RSA
+          (пароль + письмо + код восстановления) и PDF с электронной подписью. Простые для RSA
           приходят из воркера <code>IS-prime-number-generator</code> через Kafka.
         </p>
         <div className="flex flex-wrap gap-2">

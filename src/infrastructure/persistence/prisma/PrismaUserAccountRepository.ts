@@ -49,7 +49,7 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
 
   /**
    * Создаёт учётную запись.
-   * @param newUser Данные новой записи, включая хэш пароля и секрет TOTP.
+   * @param newUser Данные новой записи, включая хэш пароля.
    * @returns Созданная учётная запись.
    */
   public async insert(newUser: NewUserAccount): Promise<UserAccount> {
@@ -60,7 +60,6 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
         role: newUser.role,
         passwordHash: newUser.passwordHash.hashHex,
         passwordSalt: newUser.passwordHash.saltHex,
-        totpSecretBase32: newUser.totpSecretBase32,
       },
     });
     return this.map(record);
@@ -102,7 +101,6 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
     login: string;
     email: string;
     role: UserRole;
-    totpSecretBase32: string;
     createdAt: Date;
   }): UserAccount {
     return {
@@ -110,7 +108,6 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
       login: record.login,
       email: record.email,
       role: record.role,
-      totpSecretBase32: record.totpSecretBase32,
       createdAt: record.createdAt,
     };
   }

@@ -29,7 +29,6 @@ model User {
   role             UserRole
   passwordHash     String
   passwordSalt     String
-  totpSecretBase32 String
   createdAt        DateTime @default(now())
 
   recoveryCodes    RecoveryCode[]

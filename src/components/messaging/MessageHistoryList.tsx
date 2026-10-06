@@ -5,7 +5,6 @@ import { rsaKeyMaterialModulusBitLength } from "@/domain/messaging/EncryptionKey
 import type { EncryptedMessageDto } from "@/ui/api/messagesApi";
 import { CopyableBlock } from "@/components/messaging/CopyableBlock";
 import { BusyButton } from "@/components/site/BusyButton";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -24,7 +23,7 @@ type MessageHistoryListProps = {
 };
 
 /**
- * Список записей журнала: исходник, шифртекст, ключи, проверка расшифровки и скачивание PDF.
+ * Список записей журнала: исходник, шифртекст, ключи, результат расшифрования и скачивание PDF.
  * @param props.messages Записи журнала.
  * @param props.showUser Показывать логин автора записи.
  * @param props.cryptoBusy Блокировка кнопок на время криптооперации.
@@ -52,7 +51,6 @@ export function MessageHistoryList({
     <div className="space-y-4">
       {messages.map((item) => {
         const decrypted = decryptedById[item.id];
-        const matchesStored = decrypted !== undefined && decrypted === item.plaintext;
         return (
           <Card key={item.id}>
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
@@ -64,11 +62,6 @@ export function MessageHistoryList({
                 <p className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString("ru-RU")}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {decrypted !== undefined ? (
-                  <Badge variant={matchesStored ? "default" : "destructive"}>
-                    {matchesStored ? "расшифровка совпала" : "расшифровка не совпала"}
-                  </Badge>
-                ) : null}
                 <BusyButton
                   size="sm"
                   variant="outline"
@@ -95,9 +88,7 @@ export function MessageHistoryList({
               <CopyableBlock label="Исходный текст" value={item.plaintext} />
               <CopyableBlock label={`Шифртекст (${item.ciphertextHex.length / 2} байт, hex)`} value={item.ciphertextHex} />
               {decryptingId === item.id ? <Skeleton className="h-16 w-full" /> : null}
-              {decrypted !== undefined && !matchesStored ? (
-                <CopyableBlock label="Расшифровано из шифртекста (не совпало с исходником)" value={decrypted} />
-              ) : null}
+              {decrypted !== undefined ? <CopyableBlock label="Расшифровано из шифртекста" value={decrypted} /> : null}
               <KeyMaterialBlocks keyMaterial={item.keyMaterial} />
             </CardContent>
           </Card>

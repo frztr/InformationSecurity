@@ -46,7 +46,7 @@ export async function readOrCreateAdminEnrollment(
   const deadline = Date.now() + 20_000;
   while (!existsSync(FILE)) {
     if (Date.now() > deadline) {
-      throw new Error("Не удалось дождаться публикации TOTP администратора.");
+      throw new Error("Не удалось дождаться публикации кодов восстановления администратора.");
     }
     await sleep(50);
   }

@@ -1,15 +1,13 @@
 import { consumeEmailOtp, issueEmailOtp } from "@/application/identity/IdentitySecrets";
-import { decodeBase32 } from "@/domain/identity/Base32Encoding";
 import type { IEmailOtpRepository } from "@/domain/identity/IEmailOtpRepository";
 import type { IMailGateway } from "@/domain/identity/IMailGateway";
 import type { IPasswordHasher } from "@/domain/identity/IPasswordHasher";
 import type { IPendingLoginRepository } from "@/domain/identity/IPendingLoginRepository";
 import type { IRecoveryCodeRepository } from "@/domain/identity/IRecoveryCodeRepository";
 import type { ISessionRepository } from "@/domain/identity/ISessionRepository";
-import { TotpOneTimePasswordService } from "@/domain/identity/TotpOneTimePasswordService";
 import type { UserAccount } from "@/domain/identity/UserAccount";
 import type { IUserAccountRepository } from "@/domain/identity/IUserAccountRepository";
-import { fail, fromThrowable, ok, type Result } from "@/domain/Result";
+import { fail, ok, type Result } from "@/domain/Result";
 import { generateSessionToken, hashOpaqueSecret } from "@/infrastructure/identity/SecretDigest";
 
 /**
@@ -29,7 +27,7 @@ export type VerifyThirdFactorResult = {
 };
 
 /**
- * Вход по схеме 3FA: пароль, код из письма, TOTP или код восстановления.
+ * Вход по схеме 3FA: пароль, код из письма, код восстановления.
  */
 export class AuthenticationService {
   public constructor(
@@ -40,7 +38,6 @@ export class AuthenticationService {
     private readonly recoveryCodeRepository: IRecoveryCodeRepository,
     private readonly sessionRepository: ISessionRepository,
     private readonly mailGateway: IMailGateway,
-    private readonly totpService: TotpOneTimePasswordService,
     private readonly emailOtpTtlSeconds: number,
     private readonly pendingLoginTtlMinutes: number,
     private readonly sessionTtlHours: number,
@@ -101,13 +98,13 @@ export class AuthenticationService {
   }
 
   /**
-   * Проверяет TOTP или код восстановления и выдаёт сеанс.
+   * Проверяет код восстановления и выдаёт сеанс.
    * @param pendingLoginId Идентификатор незавершённого входа.
-   * @param totpOrRecoveryCode Код TOTP или восстановления.
+   * @param recoveryCode Код восстановления.
    */
   public async verifyThirdFactor(
     pendingLoginId: string,
-    totpOrRecoveryCode: string,
+    recoveryCode: string,
   ): Promise<Result<VerifyThirdFactorResult>> {
     const pendingLogin = await this.pendingLoginRepository.findById(pendingLoginId);
     if (!pendingLogin || pendingLogin.expiresAt <= new Date() || !pendingLogin.emailVerified) {
@@ -119,19 +116,13 @@ export class AuthenticationService {
       return fail("Пользователь не найден.");
     }
 
-    const presented = totpOrRecoveryCode.trim();
-    const totpSecret = fromThrowable(() => decodeBase32(user.totpSecretBase32), "Некорректный секрет TOTP.");
-    if (totpSecret.isError) {
-      return totpSecret;
-    }
+    const recoveryAccepted = await this.recoveryCodeRepository.consumeUnused(
+      user.id,
+      hashOpaqueSecret(recoveryCode.trim().toUpperCase()),
+    );
 
-    const totpAccepted = this.totpService.verifyCode(totpSecret.resultDto, presented);
-    const recoveryAccepted = totpAccepted
-      ? false
-      : await this.recoveryCodeRepository.consumeUnused(user.id, hashOpaqueSecret(presented.toUpperCase()));
-
-    if (!totpAccepted && !recoveryAccepted) {
-      return fail("Неверный TOTP или код восстановления.");
+    if (!recoveryAccepted) {
+      return fail("Неверный код восстановления.");
     }
 
     const sessionToken = generateSessionToken();

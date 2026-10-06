@@ -49,15 +49,3 @@ export async function downloadMessagePdf(messageId: string): Promise<void> {
   const { blob, fileName } = await getBlob(`/api/messages/${messageId}/pdf`, "PDF недоступен");
   saveBlobFile(blob, fileName === "download" ? `message-${messageId}.pdf` : fileName);
 }
-
-/**
- * Текст уведомления о совпадении расшифровки с исходником в журнале.
- * @param stored Исходный текст из записи журнала.
- * @param plaintext Результат расшифрования.
- * @returns Сообщение о совпадении или расхождении.
- */
-export function decryptionMatchMessage(stored: string | undefined, plaintext: string): string {
-  return stored === plaintext
-    ? "Расшифровка совпала с исходником"
-    : "Расшифровка не совпала с исходником в журнале";
-}

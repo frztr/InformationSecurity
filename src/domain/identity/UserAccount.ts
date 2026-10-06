@@ -8,6 +8,5 @@ export type UserAccount = {
   login: string;
   email: string;
   role: UserRole;
-  totpSecretBase32: string;
   createdAt: Date;
 };

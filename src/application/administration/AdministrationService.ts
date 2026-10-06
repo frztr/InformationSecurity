@@ -1,7 +1,6 @@
 import type { EncryptionMethod } from "@/domain/cryptography/EncryptionMethod";
 import { EncryptionMethod as EncryptionMethodValue } from "@/domain/cryptography/EncryptionMethod";
 import type { IEncryptionMethodRepository } from "@/domain/access/IEncryptionMethodRepository";
-import { buildOtpAuthUrl } from "@/domain/identity/Base32Encoding";
 import type { IMailGateway } from "@/domain/identity/IMailGateway";
 import type { IPasswordHasher } from "@/domain/identity/IPasswordHasher";
 import type { IRecoveryCodeRepository } from "@/domain/identity/IRecoveryCodeRepository";
@@ -14,14 +13,12 @@ import type { RegistrationService } from "@/application/identity/RegistrationSer
 import { fail, ok, type Result } from "@/domain/Result";
 
 /**
- * Данные TOTP администратора по умолчанию.
+ * Коды восстановления администратора по умолчанию.
  */
 export type DefaultAdminEnrollment = {
   created: boolean;
   email: string;
   login: string;
-  totpSecretBase32: string;
-  otpAuthUrl: string;
   recoveryCodes: string[];
 };
 
@@ -35,7 +32,6 @@ export class AdministrationService {
     private readonly encryptionMethodRepository: IEncryptionMethodRepository,
     private readonly registrationService: RegistrationService,
     private readonly passwordHasher: IPasswordHasher,
-    private readonly totpIssuer: string,
     private readonly recoveryCodeCount: number,
   ) {}
 
@@ -138,8 +134,6 @@ export class AdministrationService {
         created: true,
         email: admin.email.toLowerCase(),
         login: admin.login,
-        totpSecretBase32: enrollment.resultDto.totpSecretBase32,
-        otpAuthUrl: enrollment.resultDto.otpAuthUrl,
         recoveryCodes: enrollment.resultDto.recoveryCodes,
       });
     }
@@ -150,8 +144,6 @@ export class AdministrationService {
       created: false,
       email: existing.email,
       login: existing.login,
-      totpSecretBase32: existing.totpSecretBase32,
-      otpAuthUrl: buildOtpAuthUrl(this.totpIssuer, existing.login, existing.totpSecretBase32),
       recoveryCodes,
     });
   }
@@ -188,7 +180,7 @@ export class AdministrationService {
 }
 
 /**
- * Текст письма с TOTP-секретом и кодами восстановления администратора.
+ * Текст письма с кодами восстановления администратора.
  * @param enrollment Данные зачисления.
  * @param webmailUrl Адрес веб-почты.
  */
@@ -199,12 +191,10 @@ function formatAdminEnrollmentMailBody(enrollment: DefaultAdminEnrollment, webma
   return [
     `Здравствуйте, ${enrollment.login}.`,
     "",
-    "Секрет третьего фактора администратора приложения InformationSecurity.",
+    "Коды восстановления администратора приложения InformationSecurity.",
     previousCodesNote,
     "",
     `Логин: ${enrollment.login}`,
-    `TOTP secret: ${enrollment.totpSecretBase32}`,
-    `OTPAuth: ${enrollment.otpAuthUrl}`,
     "",
     "Коды восстановления:",
     ...enrollment.recoveryCodes.map((code) => `- ${code}`),
@@ -215,7 +205,7 @@ function formatAdminEnrollmentMailBody(enrollment: DefaultAdminEnrollment, webma
 }
 
 /**
- * Отправляет письмо с TOTP и кодами восстановления администратора.
+ * Отправляет письмо с кодами восстановления администратора.
  * @param mailGateway Почтовый шлюз.
  * @param enrollment Данные зачисления.
  * @param webmailUrl Адрес веб-почты.
@@ -227,7 +217,7 @@ export async function sendAdminEnrollmentMail(
 ): Promise<void> {
   await mailGateway.send(
     enrollment.email,
-    "Администратор InformationSecurity: TOTP и коды восстановления",
+    "Администратор InformationSecurity: коды восстановления",
     formatAdminEnrollmentMailBody(enrollment, webmailUrl),
   );
 }

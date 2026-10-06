@@ -34,7 +34,7 @@ export function WorkspaceClient({ actorLogin, methods, messages }: WorkspaceClie
   );
   const [history, setHistory] = useState(messages);
   const encrypting = useBusyAction();
-  const historyActions = useMessageHistoryActions(history);
+  const historyActions = useMessageHistoryActions();
   const cryptoBusy = encrypting.pending || historyActions.cryptoBusy;
   const decryptingMessage = history.find((item) => item.id === historyActions.decryptingId);
   const pdfMessage = history.find((item) => item.id === historyActions.pdfId);

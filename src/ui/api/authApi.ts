@@ -1,11 +1,8 @@
 import { postJson } from "@/ui/http/HttpClient";
 
-/** Секрет TOTP, QR и коды восстановления, выдаваемые при регистрации. */
+/** Коды восстановления, выдаваемые при регистрации. */
 export type Enrollment = {
-  otpAuthUrl: string;
-  totpSecretBase32: string;
   recoveryCodes: string[];
-  qrDataUrl: string;
 };
 
 /**
@@ -37,8 +34,8 @@ export async function verifyEmailOtp(otpCode: string): Promise<{ next: string }>
 }
 
 /**
- * Проверяет TOTP или код восстановления (третий фактор).
- * @param code TOTP либо одноразовый код восстановления.
+ * Проверяет код восстановления (третий фактор).
+ * @param code Одноразовый код восстановления.
  * @returns Путь после успешного входа.
  */
 export async function verifyThirdFactor(code: string): Promise<{ next: string }> {
@@ -47,9 +44,9 @@ export async function verifyThirdFactor(code: string): Promise<{ next: string }>
 }
 
 /**
- * Регистрирует учётную запись и возвращает данные привязки TOTP.
+ * Регистрирует учётную запись и возвращает коды восстановления.
  * @param input Логин, почта, пароль и подтверждение пароля.
- * @returns Секрет TOTP, QR и коды восстановления.
+ * @returns Коды восстановления.
  */
 export async function registerUser(input: {
   login: string;

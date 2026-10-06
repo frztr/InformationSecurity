@@ -12,7 +12,6 @@ import { CryptographicRandomIntegerSource } from "@/domain/cryptography/primes/C
 import { RsaKeyPairAssembler } from "@/domain/cryptography/rsa/RsaKeyPairAssembler";
 import { RsaKeyPairIssuer } from "@/domain/cryptography/rsa/RsaKeyPairIssuer";
 import { RsaStreebogDigitalSignature } from "@/domain/cryptography/rsa/RsaStreebogDigitalSignature";
-import { TotpOneTimePasswordService } from "@/domain/identity/TotpOneTimePasswordService";
 import {
   loadApplicationConfiguration,
   type ApplicationSecrets,
@@ -97,9 +96,7 @@ function getServices(): ApplicationServices {
     passwordHasher,
     mailGateway,
     settings.mail.domain,
-    settings.auth.totpIssuer,
     settings.auth.recoveryCodeCount,
-    randomIntegerSource,
   );
   const authentication = new AuthenticationService(
     userAccountRepository,
@@ -109,7 +106,6 @@ function getServices(): ApplicationServices {
     recoveryCodeRepository,
     sessionRepository,
     mailGateway,
-    new TotpOneTimePasswordService(),
     settings.auth.emailOtpTtlSeconds,
     settings.auth.pendingLoginTtlMinutes,
     settings.auth.sessionTtlHours,
@@ -146,7 +142,6 @@ function getServices(): ApplicationServices {
       encryptionMethodRepository,
       registration,
       passwordHasher,
-      settings.auth.totpIssuer,
       settings.auth.recoveryCodeCount,
     ),
   };
@@ -175,8 +170,6 @@ async function publishDefaultAdminEnrollment(services: ApplicationServices): Pro
     if (enrollment.created) {
       console.info("Создан администратор по умолчанию.");
     }
-    console.info(`TOTP secret: ${enrollment.totpSecretBase32}`);
-    console.info(`OTPAuth: ${enrollment.otpAuthUrl}`);
     console.info(`Коды восстановления: ${enrollment.recoveryCodes.join(", ")}`);
   }
 
@@ -190,9 +183,9 @@ async function publishDefaultAdminEnrollment(services: ApplicationServices): Pro
     }
     await sendAdminEnrollmentMail(mailGatewayInstance, enrollment, services.applicationSettings.mail.webmailUrl);
     markAdminEnrollmentMailSent();
-    console.info(`TOTP и коды восстановления отправлены на ${enrollment.email}`);
+    console.info(`Коды восстановления отправлены на ${enrollment.email}`);
   } catch (error) {
-    console.warn("Не удалось отправить TOTP администратора на почту, повторю при следующем запросе:", error);
+    console.warn("Не удалось отправить коды восстановления администратора на почту, повторю при следующем запросе:", error);
   }
 }
 

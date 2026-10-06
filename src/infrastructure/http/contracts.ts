@@ -31,14 +31,14 @@ export class VerifyEmailOtpRequest {
 }
 
 /**
- * Тело третьего фактора: TOTP или код восстановления.
+ * Тело третьего фактора: код восстановления.
  */
 export class VerifyThirdFactorRequest {
   public readonly code: string;
 
   public constructor(input: unknown) {
     const reader = new ContractReader(input);
-    this.code = reader.requiredString("code", "Укажите TOTP или код восстановления.");
+    this.code = reader.requiredString("code", "Укажите код восстановления.");
     reader.throwIfInvalid();
   }
 }

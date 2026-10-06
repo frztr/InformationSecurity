@@ -5,7 +5,7 @@ import { endpoint } from "@/infrastructure/http/HttpPipeline";
 import { jsonBody } from "@/infrastructure/http/RequestContractMiddleware";
 
 /**
- * POST: регистрирует учётную запись и возвращает данные привязки TOTP.
+ * POST: регистрирует учётную запись и возвращает коды восстановления.
  */
 export const POST = endpoint(
   jsonBody(RegisterUserRequest),

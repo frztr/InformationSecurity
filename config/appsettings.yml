@@ -27,7 +27,6 @@ mail:
 auth:
   emailOtpTtlSeconds: 300
   sessionTtlHours: 12
-  totpIssuer: InformationSecurity
   recoveryCodeCount: 10
   passwordResetTtlMinutes: 30
   pendingLoginTtlMinutes: 15

@@ -37,7 +37,6 @@ export type ApplicationSettings = {
   auth: {
     emailOtpTtlSeconds: number;
     sessionTtlHours: number;
-    totpIssuer: string;
     recoveryCodeCount: number;
     passwordResetTtlMinutes: number;
     pendingLoginTtlMinutes: number;
@@ -95,7 +94,6 @@ const DEFAULT_APPLICATION_SETTINGS: ApplicationSettings = {
   auth: {
     emailOtpTtlSeconds: 300,
     sessionTtlHours: 12,
-    totpIssuer: "InformationSecurity",
     recoveryCodeCount: 10,
     passwordResetTtlMinutes: 30,
     pendingLoginTtlMinutes: 15,

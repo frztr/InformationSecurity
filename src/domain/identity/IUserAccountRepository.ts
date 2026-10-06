@@ -10,7 +10,6 @@ export type NewUserAccount = {
   email: string;
   role: UserRole;
   passwordHash: PasswordHash;
-  totpSecretBase32: string;
 };
 
 /**

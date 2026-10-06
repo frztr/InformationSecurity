@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /**
- * Страница регистрации: форма учётной записи, секрет TOTP и коды восстановления.
+ * Страница регистрации: форма учётной записи и коды восстановления.
  */
 export default function RegisterPage() {
   const [login, setLogin] = useState("");
@@ -38,14 +38,12 @@ export default function RegisterPage() {
       <div className="mx-auto max-w-lg px-4 py-16">
         <Card>
           <CardHeader>
-            <CardTitle>3FA настроена</CardTitle>
+            <CardTitle>Коды восстановления</CardTitle>
             <CardDescription>
-              Секрет TOTP (HMAC-Стрибог-512) и коды восстановления. Они больше не покажутся. Стандартный Google Authenticator с SHA-1 сюда не подойдёт.
+              Третий фактор входа. Сохраните коды: повторно они не покажутся.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {enrollment.qrDataUrl ? <img src={enrollment.qrDataUrl} alt="QR TOTP" className="mx-auto rounded-md border" /> : null}
-            <p className="break-all font-mono text-xs">{enrollment.totpSecretBase32}</p>
             <ul className="grid grid-cols-2 gap-2 font-mono text-sm">
               {enrollment.recoveryCodes.map((code) => (
                 <li key={code} className="rounded bg-muted px-2 py-1">

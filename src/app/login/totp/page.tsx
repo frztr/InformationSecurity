@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 /**
- * Третий фактор входа: TOTP или код восстановления. Требует незавершённый вход.
+ * Третий фактор входа: код восстановления. Требует незавершённый вход.
  */
 export default function LoginTotpPage() {
   const [code, setCode] = useState("");
@@ -28,14 +28,12 @@ export default function LoginTotpPage() {
       <Card className="w-full" aria-busy={pending}>
         <CardHeader>
           <CardTitle>Вход · фактор 3</CardTitle>
-          <CardDescription>
-            Шестизначный TOTP на HMAC-Стрибог-512 или одноразовый код восстановления. Google Authenticator с SHA-1 этот код не посчитает.
-          </CardDescription>
+          <CardDescription>Одноразовый код восстановления, выданный при регистрации.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={(event) => void submit(event)}>
             <div className="space-y-2">
-              <Label htmlFor="code">TOTP / код восстановления</Label>
+              <Label htmlFor="code">Код восстановления</Label>
               <Input id="code" value={code} onChange={(event) => setCode(event.target.value)} required disabled={pending} />
             </div>
             <BusyButton className="w-full" type="submit" busy={pending} busyLabel="Вход…">

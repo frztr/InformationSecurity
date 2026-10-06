@@ -40,7 +40,7 @@ export function AdminClient({ methods, users, messages }: AdminClientProps) {
   const [createdSecrets, setCreatedSecrets] = useState<string[] | null>(null);
   const [togglingMethod, setTogglingMethod] = useState<EncryptionMethod | null>(null);
   const creatingUser = useBusyAction();
-  const historyActions = useMessageHistoryActions(messages);
+  const historyActions = useMessageHistoryActions();
   const decryptingMessage = messages.find((item) => item.id === historyActions.decryptingId);
   const pdfMessage = messages.find((item) => item.id === historyActions.pdfId);
 

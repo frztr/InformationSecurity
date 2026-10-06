@@ -8,9 +8,9 @@ MVP системы защиты на Next.js (DDD, TypeScript): RSA-32768, «К�
 | --- | --- |
 | RSA-32768 | `src/domain/cryptography/rsa` — модуль собирается из двух **16384-битных простых**, которые публикует образ `frztr/prime-number-generator` в Kafka (`prime-numbers`). Веб-приложение **не** ищет 32768-битные простые само. |
 | Кузнечик | `src/domain/cryptography/gost/KuznyechikCipher.ts` (RFC 7801) |
-| Стрибог-512 | `Streebog512Hasher.ts`, HMAC — `HmacStreebog512.ts` (RFC 2104 поверх ГОСТ Р 34.11-2012) |
+| Стрибог-512 | `Streebog512Hasher.ts` (ГОСТ Р 34.11-2012) |
 | ЭЦП PDF | Стрибог-512 + RSA PKCS#1, `MessageService.exportMessageAsSignedPdf` |
-| 3FA | пароль → OTP на почту → TOTP на HMAC-Стрибог-512 или код восстановления |
+| 3FA | пароль → OTP на почту → код восстановления |
 | Хэш паролей | Стрибог-512 (ГОСТ Р 34.11-2012), соль + пароль |
 | Секреты | `config/secrets.yml` (отдельно от `config/appsettings.yml`) |
 
@@ -38,7 +38,7 @@ docker compose up --build
 - логин `admin`
 - пароль `Admin#12345`
 
-Секрет TOTP и коды восстановления администратора при каждом старте контейнера пишутся в лог `is-webapp-web` и приходят письмом на `admin@information-security.org` (веб-почта: http://localhost:8025/webmail). Коды восстановления при перезапуске выпускаются заново.
+Коды восстановления администратора при создании учётки пишутся в лог `is-webapp-web` и приходят письмом на `admin@information-security.org` (веб-почта: http://localhost:8025/webmail). При перезапуске выпускаются новые коды.
 
 Почтовый ящик администратора создаёт сам Mailu: `admin@information-security.org`, пароль `Admin#12345`. Веб-почта: http://localhost:8025/webmail (полный адрес).
 
@@ -71,9 +71,9 @@ npm run dev
 
 1. Пароль
 2. Шестизначный код из письма (веб-почта http://localhost:8025/webmail)
-3. TOTP на HMAC-Стрибог-512 (не Google Authenticator / SHA-1) или одноразовый код восстановления `XXXX-XXXX-XXXX`
+3. Одноразовый код восстановления `XXXX-XXXX-XXXX`, показанный при регистрации
 
-Если устройство TOTP потеряно: коды восстановления или сброс пароля через почту.
+Если коды восстановления потеряны: сброс пароля через почту.
 
 ## Слои DDD
 
