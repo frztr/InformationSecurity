@@ -15,15 +15,15 @@ const ROUND_COUNT = 12;
 const ROUND_CONSTANTS = STREEBOG_ROUND_CONSTANTS.map(reverseBlock);
 
 /**
- * Хэш-функция Стрибог-512 (ГОСТ Р 34.11-2012).
- * Внутри 512-битный вектор хранится как в ГОСТ: индекс 0 — младший байт.
- * Методы hashBytes и hashToHex отдают дайджест в обычной записи: индекс 0 — старший байт.
+ * Хэш-функция Стрибог-512 (ГОСТ Р 34.11-2012 / RFC 6986).
+ * Первый байт сообщения — младший в блоке. Дайджест печатается как в публичных
+ * векторах: индекс 0 — первый hex-байт (пустая строка начинается с 8e945da2).
  */
 export class Streebog512Hasher {
   /**
    * Хэширует произвольные байты по ГОСТ Р 34.11-2012 (Стрибог-512).
-   * @param message Входное сообщение, первый байт — старший.
-   * @returns 64-байтный дайджест, индекс 0 — старший байт.
+   * @param message Входное сообщение, индекс 0 — первый байт.
+   * @returns 64-байтный дайджест в порядке публичных векторов RFC 6986.
    */
   public hashBytes(message: Uint8Array): Uint8Array {
     let currentHash: Uint8Array<ArrayBufferLike> = new Uint8Array(BLOCK_SIZE_BYTES);
@@ -53,7 +53,7 @@ export class Streebog512Hasher {
     currentHash = this.compress(currentHash, bitLength, zeroVector);
     currentHash = this.compress(currentHash, checksum, zeroVector);
 
-    return reverseBlock(currentHash);
+    return currentHash;
   }
 
   /**
@@ -185,12 +185,12 @@ export class Streebog512Hasher {
 }
 
 /**
- * Кладёт байты сообщения в блок ГОСТ: последний байт сообщения — младший (индекс 0).
- * @param messageBytes Хвост сообщения, первый байт — старший.
+ * Кладёт байты сообщения в блок ГОСТ: первый байт фрагмента — младший (индекс 0).
+ * @param messageBytes Хвост или остаток сообщения в порядке файла.
  */
 function toGostBlock(messageBytes: Uint8Array): Uint8Array {
   const block = new Uint8Array(BLOCK_SIZE_BYTES);
-  block.set(new Uint8Array(messageBytes).reverse());
+  block.set(messageBytes);
   return block;
 }
 
