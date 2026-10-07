@@ -113,7 +113,7 @@ export class MessageService {
   }
 
   /**
-   * Формирует PDF с открытым текстом, шифртекстом, ключами и подписью Стрибог-512 + RSA.
+   * Формирует PDF с открытым текстом, шифртекстом, ключами и подписью Стрибог-512 + RSA от исходника.
    * @param actor Текущий пользователь.
    * @param messageId Идентификатор сообщения.
    */
@@ -138,12 +138,10 @@ export class MessageService {
     const keyPair = signingKey.resultDto;
 
     const hasher = new Streebog512Hasher();
-    const payloadForSignature = new TextEncoder().encode(
-      `${message.resultDto.id}|${message.resultDto.userLogin}|${message.resultDto.method}|${message.resultDto.plaintext}|${message.resultDto.ciphertextHex}|${message.resultDto.createdAt.toISOString()}`,
-    );
-    const contentHashHex = hasher.hashToHex(payloadForSignature);
-    const signatureBytes = this.digitalSignature.sign(payloadForSignature, keyPair.privateKey);
-    const signatureValid = this.digitalSignature.verify(payloadForSignature, signatureBytes, keyPair.publicKey);
+    const plaintextBytes = new TextEncoder().encode(message.resultDto.plaintext);
+    const contentHashHex = hasher.hashToHex(plaintextBytes);
+    const signatureBytes = this.digitalSignature.sign(plaintextBytes, keyPair.privateKey);
+    const signatureValid = this.digitalSignature.verify(plaintextBytes, signatureBytes, keyPair.publicKey);
 
     const pdfBytes = await this.pdfDocumentFactory.create({
       messageId: message.resultDto.id,

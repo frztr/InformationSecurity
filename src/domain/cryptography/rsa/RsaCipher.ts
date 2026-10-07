@@ -7,7 +7,7 @@ import { rsaModulusByteLength, type RsaPrivateKey, type RsaPublicKey } from "@/d
  * RSA с дополнением PKCS#1 v1.5. Длина модуля по умолчанию — 32768 бит.
  */
 export class RsaCipher {
-  public constructor(private readonly randomIntegerSource: IRandomIntegerSource) {}
+  public constructor(private readonly randomIntegerSource: IRandomIntegerSource | null = null) {}
 
   /**
    * Шифрует данные открытым ключом с дополнением PKCS#1 v1.5 (тип 2).
@@ -144,6 +144,9 @@ export class RsaCipher {
    * Возвращает случайный байт из диапазона 1…255 для PKCS#1 type 2.
    */
   private nextNonZeroRandomByte(): number {
+    if (!this.randomIntegerSource) {
+      throw new Error("Для шифрования RSA нужен источник случайных байт.");
+    }
     const buffer = new Uint8Array(1);
     do {
       this.randomIntegerSource.fillBytes(buffer);

@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ManualDecryptCard } from "@/components/workspace/ManualDecryptCard";
 import { encryptMessage } from "@/ui/api/messagesApi";
 import { useBusyAction } from "@/ui/http/useBusyAction";
 
@@ -21,7 +22,7 @@ type WorkspaceClientProps = {
 };
 
 /**
- * Рабочий стол пользователя: шифрование текста выбранным методом и журнал своих сообщений.
+ * Рабочий стол пользователя: шифрование, клиентское расшифрование вставленным ключом и журнал.
  * @param props.actorLogin Логин текущего пользователя.
  * @param props.methods Список методов шифрования и их доступность.
  * @param props.messages Начальный журнал сообщений.
@@ -35,7 +36,8 @@ export function WorkspaceClient({ actorLogin, methods, messages }: WorkspaceClie
   const [history, setHistory] = useState(messages);
   const encrypting = useBusyAction();
   const historyActions = useMessageHistoryActions();
-  const cryptoBusy = encrypting.pending || historyActions.cryptoBusy;
+  const [manualDecryptPending, setManualDecryptPending] = useState(false);
+  const cryptoBusy = encrypting.pending || historyActions.cryptoBusy || manualDecryptPending;
   const decryptingMessage = history.find((item) => item.id === historyActions.decryptingId);
   const pdfMessage = history.find((item) => item.id === historyActions.pdfId);
 
@@ -55,48 +57,56 @@ export function WorkspaceClient({ actorLogin, methods, messages }: WorkspaceClie
         <h1 className="text-2xl font-semibold">Рабочий стол</h1>
         <p className="text-sm text-muted-foreground">Пользователь {actorLogin}.</p>
       </div>
-      <Card aria-busy={encrypting.pending}>
-        <CardHeader>
-          <CardTitle>Зашифровать сообщение</CardTitle>
-          <CardDescription>Доступны только методы, включённые администратором.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {encrypting.pending ? <OperationStatus>{cryptoWaitMessage("encrypt", method)}</OperationStatus> : null}
-          <div className="space-y-2">
-            <Label htmlFor="plaintext">Исходный текст</Label>
-            <Textarea
-              id="plaintext"
-              value={plaintext}
-              onChange={(event) => setPlaintext(event.target.value)}
-              rows={6}
-              disabled={cryptoBusy}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Метод</Label>
-            <Select value={method} onValueChange={(value) => setMethod(value as EncryptionMethod)} disabled={cryptoBusy}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {enabledMethods.map((item) => (
-                  <SelectItem key={item.method} value={item.method}>
-                    {item.method === "RSA" ? "RSA-32768" : "Кузнечик"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <BusyButton
-            onClick={() => void encrypt()}
-            disabled={cryptoBusy || enabledMethods.length === 0}
-            busy={encrypting.pending}
-            busyLabel="Шифрование…"
-          >
-            Зашифровать
-          </BusyButton>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card aria-busy={encrypting.pending}>
+          <CardHeader>
+            <CardTitle>Зашифровать сообщение</CardTitle>
+            <CardDescription>Доступны только методы, включённые администратором.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {encrypting.pending ? <OperationStatus>{cryptoWaitMessage("encrypt", method)}</OperationStatus> : null}
+            <div className="space-y-2">
+              <Label htmlFor="plaintext">Исходный текст</Label>
+              <Textarea
+                id="plaintext"
+                value={plaintext}
+                onChange={(event) => setPlaintext(event.target.value)}
+                rows={6}
+                disabled={cryptoBusy}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Метод</Label>
+              <Select value={method} onValueChange={(value) => setMethod(value as EncryptionMethod)} disabled={cryptoBusy}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {enabledMethods.map((item) => (
+                    <SelectItem key={item.method} value={item.method}>
+                      {item.method === "RSA" ? "RSA-32768" : "Кузнечик"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <BusyButton
+              onClick={() => void encrypt()}
+              disabled={cryptoBusy || enabledMethods.length === 0}
+              busy={encrypting.pending}
+              busyLabel="Шифрование…"
+            >
+              Зашифровать
+            </BusyButton>
+          </CardContent>
+        </Card>
+        <ManualDecryptCard
+          methods={methods}
+          defaultMethod={method}
+          disabled={cryptoBusy && !manualDecryptPending}
+          onPendingChange={setManualDecryptPending}
+        />
+      </div>
       <Card aria-busy={historyActions.decryptingId !== null || historyActions.pdfId !== null}>
         <CardHeader>
           <CardTitle>Журнал</CardTitle>
